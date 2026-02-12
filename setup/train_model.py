@@ -42,20 +42,29 @@ def create_and_save_pipeline():
     X = df[NUMERIC_FEATURES]
     y = df['readmitted']
     
-    # 80/20 Train/Test Split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # 80/20 Patient-Level Split (Leakage-Safe)
+    # We group by 'patient_nbr' so that if a patient has multiple encounters,
+    # they all stay in either the train OR the test set, never both.
+    from sklearn.model_selection import GroupShuffleSplit
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    train_idx, test_idx = next(gss.split(X, y, groups=df['patient_nbr']))
+    
+    X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
     
     # Save the 80% used for training
-    train_indices = X_train.index
-    trained_data = df.loc[train_indices].copy()
+    trained_data = df.iloc[train_idx].copy()
     trained_data.to_csv('data/trained_data.csv', index=False)
     print(f"✅ Trained Data saved (80%): data/trained_data.csv ({len(trained_data)} records)")
 
     # Save the 20% used for testing (The "Demo" file)
-    test_indices = X_test.index
-    test_data = df.loc[test_indices].copy()
+    test_data = df.iloc[test_idx].copy()
     test_data.to_csv('data/test_data.csv', index=False)
     print(f"✅ Test Data saved (20%): data/test_data.csv ({len(test_data)} records)")
+    
+    # Verify zero patient overlap
+    overlap = set(trained_data['patient_nbr']) & set(test_data['patient_nbr'])
+    print(f"🛡️  Security Check: Patient Overlap is {len(overlap)}")
 
     # Tuning
     param_grid = {
