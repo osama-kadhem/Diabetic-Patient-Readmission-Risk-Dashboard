@@ -17,91 +17,70 @@ NUMERIC_FEATURES = [
     'number_inpatient', 'number_diagnoses'
 ]
 
-def create_sample_data(n_samples=5000):
-    # generate mock data
 
-    np.random.seed(42)
+def load_real_data():
+    # Load the real clinical dataset
+    print("Loading real clinical data...")
+    df = pd.read_csv('data/diabetic_data.csv')
     
-    # Categorical distributions
-    races = ['Caucasian', 'AfricanAmerican', 'Hispanic', 'Asian', 'Other']
-    genders = ['Female', 'Male']
-    age_groups = ['[0-10)', '[10-20)', '[20-30)', '[30-40)', '[40-50)', '[50-60)', '[60-70)', '[70-80)', '[80-90)', '[90-100)']
+    # Clean missing values ('?')
+    df = df.replace('?', np.nan)
     
-    data = {
-        'patient_nbr': [f'PN{100000+i}' for i in range(n_samples)],
-        'race': np.random.choice(races, n_samples, p=[0.7, 0.2, 0.05, 0.02, 0.03]),
-        'gender': np.random.choice(genders, n_samples),
-        'age': np.random.choice(age_groups, n_samples, p=[0.01, 0.01, 0.02, 0.03, 0.1, 0.15, 0.25, 0.25, 0.15, 0.03]),
-        'time_in_hospital': np.random.randint(1, 15, n_samples),
-        'num_lab_procedures': np.random.randint(1, 100, n_samples),
-        'num_procedures': np.random.randint(0, 7, n_samples),
-        'num_medications': np.random.randint(1, 50, n_samples),
-        'number_outpatient': np.random.randint(0, 10, n_samples),
-        'number_emergency': np.random.randint(0, 10, n_samples),
-        'number_inpatient': np.random.randint(0, 10, n_samples),
-        'number_diagnoses': np.random.randint(1, 16, n_samples)
-    }
-    
-    df = pd.DataFrame(data)
-    
-    # simulation logic
-
-    base_risk = (
-        df['time_in_hospital'] / 14 * 0.2 +
-        df['number_inpatient'] / 10 * 0.5 +
-        df['num_medications'] / 50 * 0.15 +
-        df['number_diagnoses'] / 16 * 0.15
-    )
-    
-    # Binary readmission (1 if risk high)
-    df['readmitted'] = (base_risk + np.random.normal(0, 0.1, n_samples) > 0.5).astype(int)
+    # Target Encoding: readmitted <30 days = 1, otherwise = 0
+    # Note: <30 is the high-risk class for readmission
+    df['readmitted'] = df['readmitted'].apply(lambda x: 1 if x == '<30' else 0)
     
     return df
 
 def create_and_save_pipeline():
     # train and save model
+    print("Initializing Training Pipeline (Real Data)...")
 
-    print("Training...")
+    df = load_real_data()
 
-    df = create_sample_data(10000)
-
-    
+    # Features used for the dashboard
     X = df[NUMERIC_FEATURES]
     y = df['readmitted']
     
-    # Split: Train (60%), Validation (20%), Test (20%)
-    X_train_full, X_test, y_train_full, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    X_train, X_val, y_train, y_val = train_test_split(X_train_full, y_train_full, test_size=0.25, random_state=42)
+    # 80/20 Train/Test Split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    print(f"Dataset Split: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
+    # Save the 80% used for training
+    train_indices = X_train.index
+    trained_data = df.loc[train_indices].copy()
+    trained_data.to_csv('data/trained_data.csv', index=False)
+    print(f"✅ Trained Data saved (80%): data/trained_data.csv ({len(trained_data)} records)")
+
+    # Save the 20% used for testing (The "Demo" file)
+    test_indices = X_test.index
+    test_data = df.loc[test_indices].copy()
+    test_data.to_csv('data/test_data.csv', index=False)
+    print(f"✅ Test Data saved (20%): data/test_data.csv ({len(test_data)} records)")
 
     # Tuning
-
     param_grid = {
-        'classifier__C': [0.001, 0.01, 0.1, 1, 10, 100],
+        'classifier__C': [0.1, 1.0, 10.0],
         'classifier__penalty': ['l2']
     }
     
     base_pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('classifier', LogisticRegression(max_iter=2000, solver='lbfgs'))
+        ('classifier', LogisticRegression(max_iter=2000, class_weight='balanced'))
     ])
     
-    print("Optimizing...")
-
-    grid_search = GridSearchCV(base_pipeline, param_grid, cv=5, scoring='accuracy')
+    print("Optimizing model parameters...")
+    grid_search = GridSearchCV(base_pipeline, param_grid, cv=5, scoring='f1')
     grid_search.fit(X_train, y_train)
     
     best_pipeline = grid_search.best_estimator_
-    print(f"Optimal Regularization found: C={grid_search.best_params_['classifier__C']}")
     
     # Evaluation
-    train_acc = grid_search.score(X_train, y_train)
     test_acc = grid_search.score(X_test, y_test)
+    print(f"\nModel Performance on Unseen Data:")
+    print(f" - Best C: {grid_search.best_params_['classifier__C']}")
+    print(f" - F1 Score: {test_acc:.2%}")
     
-    print(f"\nFinal Stats:")
-    print(f" - Accuracy: {test_acc:.2%}")
-    
+    # Save Model
     if not os.path.exists('models'):
         os.makedirs('models')
         
@@ -115,17 +94,10 @@ def create_and_save_pipeline():
     with open('models/pipeline.hash', 'w') as f:
         f.write(file_hash)
     
-    print(f"\nModel saved and integrity hash generated.")
-
+    print(f"Model saved and integrity hash generated.")
     return best_pipeline
 
-def save_sample_csv(df, n=100):
-    path = 'data/diabetes_test_data.csv'
-    df.head(n).to_csv(path, index=False)
-    print(f"✅ Sample CSV saved: {path}")
 
 if __name__ == '__main__':
     create_and_save_pipeline()
-    df = create_sample_data(100)
-    save_sample_csv(df)
 
