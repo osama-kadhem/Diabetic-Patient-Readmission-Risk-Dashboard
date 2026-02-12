@@ -205,9 +205,24 @@ def load_pipeline():
 
     try:
         pipeline_path = Path("models/pipeline.pkl")
-        integrity_hash = check_model_integrity(pipeline_path)
-        # In a real app, compare against a known secure hash
-        st.sidebar.caption(f"Integrity Verified: {integrity_hash[:8]}...")
+        hash_path = Path("models/pipeline.hash")
+        
+        computed_hash = check_model_integrity(pipeline_path)
+        
+        # Load the expected hash
+        if hash_path.exists():
+            with open(hash_path, "r") as f:
+                expected_hash = f.read().strip()
+            
+            if computed_hash == expected_hash:
+                st.sidebar.success(f"Integrity Verified: {computed_hash[:8]}...")
+            else:
+                st.sidebar.error("SECURITY ALERT: Model Hash Mismatch!")
+                st.error("ERR-SEC: System integrity compromised. Model file appears tampered.")
+                st.stop()
+        else:
+            st.sidebar.warning("Integrity Check: No reference hash found.")
+            st.caption(f"Current Hash: {computed_hash[:8]}")
         
         with open(pipeline_path, 'rb') as f:
             pipeline = pickle.load(f)

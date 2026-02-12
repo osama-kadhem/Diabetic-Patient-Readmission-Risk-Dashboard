@@ -108,7 +108,14 @@ def create_and_save_pipeline():
     with open('models/pipeline.pkl', 'wb') as f:
         pickle.dump(best_pipeline, f)
     
-    print(f"\nModel saved")
+    import hashlib
+    with open('models/pipeline.pkl', 'rb') as f:
+        file_hash = hashlib.sha256(f.read()).hexdigest()
+    
+    with open('models/pipeline.hash', 'w') as f:
+        f.write(file_hash)
+    
+    print(f"\nModel saved and integrity hash generated.")
 
     return best_pipeline
 
