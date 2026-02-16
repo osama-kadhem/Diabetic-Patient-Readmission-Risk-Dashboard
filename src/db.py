@@ -47,6 +47,34 @@ def init_db():
             resource_id TEXT
         )
     ''')
+
+    # prediction audit table (Week 4)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS prediction_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            encounter_id TEXT,
+            model_version TEXT,
+            risk_probability REAL,
+            predicted_label INTEGER,
+            threshold_used REAL
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def log_prediction(encounter_id, model_version, risk_probability, predicted_label, threshold_used):
+    """Logs individual predictions to the audit trail (Week 4 Requirements)"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    c.execute('''
+        INSERT INTO prediction_audit 
+        (timestamp, encounter_id, model_version, risk_probability, predicted_label, threshold_used)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (timestamp, str(encounter_id), model_version, float(risk_probability), int(predicted_label), float(threshold_used)))
     
     conn.commit()
     conn.close()

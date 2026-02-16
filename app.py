@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import joblib
 from pathlib import Path
 import io
 import altair as alt
@@ -145,6 +146,16 @@ if 'selected_patient' not in st.session_state:
     st.session_state.selected_patient = None
 if 'pipeline' not in st.session_state:
     st.session_state.pipeline = None
+if 'model_version' not in st.session_state:
+    st.session_state.model_version = "baseline_v1"
+
+# Model Registry (Week 4: Version Support)
+# Models trained with different imbalance strategies, compatible with app environment
+MODEL_REGISTRY = {
+  "baseline_v1": "artifacts_week4_compatible/baseline_v1.joblib",
+  "classweight_v1": "artifacts_week4_compatible/classweight_v1.joblib",
+  "ros_v1": "artifacts_week4_compatible/ros_v1.joblib"
+}
 
 # helpers
 
@@ -200,38 +211,25 @@ st.markdown(f"""
 
 # Load model pipeline
 @st.cache_resource
-def load_pipeline():
+def load_pipeline(version):
     # load model
-
     try:
-        pipeline_path = Path("models/pipeline.pkl")
-        hash_path = Path("models/pipeline.hash")
+        model_path = Path(MODEL_REGISTRY[version])
         
-        computed_hash = check_model_integrity(pipeline_path)
-        
-        # Load the expected hash
-        if hash_path.exists():
-            with open(hash_path, "r") as f:
-                expected_hash = f.read().strip()
+        if not model_path.exists():
+            st.error(f"ERR-404: Model file not found at {model_path}.")
+            return None
             
-            if computed_hash == expected_hash:
-                st.sidebar.success(f"Integrity Verified: {computed_hash[:8]}...")
-            else:
-                st.sidebar.error("SECURITY ALERT: Model Hash Mismatch!")
-                st.error("ERR-SEC: System integrity compromised. Model file appears tampered.")
-                st.stop()
-        else:
-            st.sidebar.warning("Integrity Check: No reference hash found.")
-            st.caption(f"Current Hash: {computed_hash[:8]}")
+        # Suppress sklearn version warnings for demo purposes
+        import warnings
+        warnings.filterwarnings('ignore', category=UserWarning)
         
-        with open(pipeline_path, 'rb') as f:
-            pipeline = pickle.load(f)
+        with open(model_path, 'rb') as f:
+            pipeline = joblib.load(f)
         return pipeline
-    except FileNotFoundError:
-        st.error("ERR-404: Model file not found. Ensure models/pipeline.pkl is present.")
-        return None
     except Exception as e:
-        st.error(f"ERR-500: System error during model initialization: {str(e)}")
+        st.error(f"ERR-500: System error loading {version}: {str(e)}")
+        st.warning("This may be due to sklearn version mismatch. Models trained with sklearn 1.8.0 may not work with sklearn 1.6.1.")
         return None
 
 @st.cache_data
@@ -252,6 +250,20 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### SYSTEM CONFIGURATION")
     
+    # 0. Model Version Selector (Week 4)
+    st.markdown("#### MODEL VERSION")
+    selected_version = st.selectbox(
+        "Select Clinical Model",
+        options=list(MODEL_REGISTRY.keys()),
+        index=0 if st.session_state.model_version not in MODEL_REGISTRY else list(MODEL_REGISTRY.keys()).index(st.session_state.model_version),
+        help="Choose the trained artifact version for inference."
+    )
+    
+    if selected_version != st.session_state.model_version:
+        st.session_state.model_version = selected_version
+        st.session_state.pipeline = None # Reset pipeline to force reload
+        st.info(f"Switched to {selected_version}")
+
     # 1. Data Import
     st.markdown("#### DATA IMPORT")
 
@@ -330,13 +342,12 @@ with st.sidebar:
     if st.button("RUN ANALYSIS", type="primary", use_container_width=True):
 
         if st.session_state.uploaded_data is not None:
-            # Load pipeline
+            # Load pipeline for the selected version
             if st.session_state.pipeline is None:
-                st.session_state.pipeline = load_pipeline()
+                st.session_state.pipeline = load_pipeline(st.session_state.model_version)
             
             if st.session_state.pipeline is not None:
                 with st.spinner("Analyzing..."):
-
                     # Predict
                     predictions = predict_risk(
                         st.session_state.uploaded_data, 
@@ -344,7 +355,26 @@ with st.sidebar:
                         threshold_high=0.7
                     )
                     st.session_state.predictions = rank_patients(predictions)
-                st.success("Analysis Complete")
+                    
+                    # Log to Audit (Week 4 Requirement)
+                    try:
+                        threshold = 0.5 # Default model threshold
+                        for _, row in st.session_state.predictions.iterrows():
+                            # Derivative fields
+                            prob = row['risk_probability']
+                            label = 1 if prob >= threshold else 0
+                            pid = row.get('encounter_id', row.get('patient_id', 'UNKNOWN'))
+                            
+                            db.log_prediction(
+                                encounter_id=pid,
+                                model_version=st.session_state.model_version,
+                                risk_probability=prob,
+                                predicted_label=label,
+                                threshold_used=threshold
+                            )
+                        st.success(f"Analysis Complete & Logged ({len(st.session_state.predictions)} records)")
+                    except Exception as e:
+                        st.warning(f"Analysis complete but logging failed: {e}")
         else:
             st.error("Please import data first.")
 

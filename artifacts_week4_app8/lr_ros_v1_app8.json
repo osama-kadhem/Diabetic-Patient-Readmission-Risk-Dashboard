@@ -1,0 +1,25 @@
+{
+  "version_id": "lr_ros_v1_app8",
+  "features": [
+    "age",
+    "time_in_hospital",
+    "num_medications",
+    "number_inpatient",
+    "number_emergency",
+    "number_outpatient",
+    "A1Cresult",
+    "insulin"
+  ],
+  "notes": "Random oversampling (ROS)",
+  "metrics": {
+    "PR_AUC": 0.1783700471193437,
+    "Precision": 0.1601669073984914,
+    "Recall": 0.46397024639702467,
+    "F1": 0.23812932474349796,
+    "Brier": 0.23186764378865346,
+    "threshold": 0.5,
+    "version_id": "lr_ros_v1_app8",
+    "notes": "Random oversampling (ROS)"
+  },
+  "sha256": "2ba96e87fc95258e1dca9e300afdb94c409af22b7ec0f7e23bd9ccf390560ee7"
+}

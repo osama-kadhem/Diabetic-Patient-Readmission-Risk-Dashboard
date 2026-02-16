@@ -5,6 +5,7 @@ def predict_risk(df, pipeline, threshold_high=0.7, threshold_medium=0.4):
     # run predictions
     df_pred = df.copy()
     
+    # Features that match the existing models/pipeline.pkl
     feature_cols = [
         'time_in_hospital', 'num_lab_procedures', 'num_procedures', 
         'num_medications', 'number_outpatient', 'number_emergency', 
