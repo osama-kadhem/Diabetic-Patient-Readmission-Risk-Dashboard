@@ -152,9 +152,16 @@ if 'model_version' not in st.session_state:
 # Model Registry (Week 4: Version Support)
 # Models trained with different imbalance strategies, compatible with app environment
 MODEL_REGISTRY = {
-  "baseline_v1": "artifacts_week4_compatible/baseline_v1.joblib",
-  "classweight_v1": "artifacts_week4_compatible/classweight_v1.joblib",
-  "ros_v1": "artifacts_week4_compatible/ros_v1.joblib"
+  "baseline_v1": "clinical_models/baseline_v1.joblib",
+  "classweight_v1": "clinical_models/classweight_v1.joblib",
+  "ros_v1": "clinical_models/ros_v1.joblib"
+}
+
+# Human-readable model labels for UI
+MODEL_LABELS = {
+  "baseline_v1": "Standard Model (Baseline)",
+  "classweight_v1": "Balanced Model (High Sensitivity)",
+  "ros_v1": "Enhanced Model (Oversampling)"
 }
 
 # helpers
@@ -252,17 +259,30 @@ with st.sidebar:
     
     # 0. Model Version Selector (Week 4)
     st.markdown("#### MODEL VERSION")
+    
+    # Custom CSS to disable typing in the selectbox
+    st.markdown("""
+        <style>
+        /* Disable typing/searching in all selectboxes to maintain 'locked' clinical labels */
+        div[data-baseweb="select"] input {
+            caret-color: transparent !important;
+            user-select: none !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     selected_version = st.selectbox(
-        "Select Clinical Model",
+        "Active Clinical Logic",
         options=list(MODEL_REGISTRY.keys()),
+        format_func=lambda x: MODEL_LABELS.get(x, x),
         index=0 if st.session_state.model_version not in MODEL_REGISTRY else list(MODEL_REGISTRY.keys()).index(st.session_state.model_version),
-        help="Choose the trained artifact version for inference."
+        help="Select the validated clinical model for risk assessment. Each version uses different training strategies optimized for specific use cases."
     )
     
     if selected_version != st.session_state.model_version:
         st.session_state.model_version = selected_version
         st.session_state.pipeline = None # Reset pipeline to force reload
-        st.info(f"Switched to {selected_version}")
+        st.success(f"Model updated: {MODEL_LABELS[selected_version]}")
 
     # 1. Data Import
     st.markdown("#### DATA IMPORT")

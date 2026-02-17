@@ -101,7 +101,7 @@ def main():
     X_train, X_test, y_train, y_test = load_data()
     
     # Create output directory
-    output_dir = Path('artifacts_week4_compatible')
+    output_dir = Path('clinical_models')
     output_dir.mkdir(exist_ok=True)
     
     # Train models
