@@ -1,0 +1,6 @@
+{
+  "version_id": "smote_v1",
+  "label": "Enhanced (SMOTE)",
+  "strategy": "smote",
+  "seed": 42
+}

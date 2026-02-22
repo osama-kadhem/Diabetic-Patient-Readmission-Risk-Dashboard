@@ -1,10 +1,6 @@
 {
   "version_id": "baseline_v1",
-  "PR_AUC": 0.19938501453688579,
-  "Precision": 0.5774647887323944,
-  "Recall": 0.02184336707511987,
-  "F1": 0.04209445585215606,
-  "Brier": 0.0979388920603985,
-  "threshold": 0.5,
-  "notes": "No imbalance handling"
+  "label": "Standard Model",
+  "strategy": "none",
+  "seed": 42
 }

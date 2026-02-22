@@ -15,6 +15,61 @@ from src.predict import predict_risk, rank_patients
 import src.db as db
 
 
+# --- Week 5 Helpers ---
+
+@st.cache_data
+def get_recommended_stable_pair():
+    """Loads stability artifacts from the consolidated research location."""
+    try:
+        df_stab = pd.read_csv("clinical_models/research_week_4_5/stability_metrics_w4_5.csv")
+        if not df_stab.empty:
+            # Map artifact names (lr_none, etc) to app registry keys
+            mapping = {
+                "lr_none": "baseline_v1",
+                "lr_classweight": "classweight_v1",
+                "lr_ros": "ros_v1"
+            }
+            top_row = df_stab.iloc[0]
+            m1 = mapping.get(top_row['model_a'], "baseline_v1")
+            m2 = mapping.get(top_row['model_b'], "classweight_v1")
+            return m1, m2, top_row['jaccard_top10']
+    except Exception:
+        pass
+    return "baseline_v1", "classweight_v1", None
+
+def get_local_explanation(pipeline, patient_row):
+    """Calculates feature contributions for a specific patient (Local Explanation)."""
+    try:
+        # 1. Extract feature columns used during training
+        feature_cols = [
+            'time_in_hospital', 'num_lab_procedures', 'num_procedures', 
+            'num_medications', 'number_outpatient', 'number_emergency', 
+            'number_inpatient', 'number_diagnoses'
+        ]
+        X = patient_row[feature_cols].values.reshape(1, -1)
+        
+        # 2. Get transformed (scaled) values
+        scaler = pipeline.named_steps['scaler']
+        X_scaled = scaler.transform(X)
+        
+        # 3. Get coefficients from the Logistic Regression model
+        model = pipeline.named_steps['model'] if 'model' in pipeline.named_steps else pipeline.named_steps['classifier']
+        weights = model.coef_[0]
+        
+        # 4. Calculate contribution: Scaled Value * Coefficient
+        contributions = X_scaled[0] * weights
+        
+        # Create results dataframe
+        df_exp = pd.DataFrame({
+            'Feature': [c.replace('_', ' ').title() for c in feature_cols],
+            'Contribution': contributions
+        }).sort_values(by='Contribution', ascending=False)
+        
+        return df_exp
+    except Exception as e:
+        return pd.DataFrame({'Error': [str(e)]})
+
+
 # Initialize DB
 db.init_db()
 
@@ -149,19 +204,20 @@ if 'pipeline' not in st.session_state:
 if 'model_version' not in st.session_state:
     st.session_state.model_version = "baseline_v1"
 
-# Model Registry (Week 4: Version Support)
-# Models trained with different imbalance strategies, compatible with app environment
+# Model Registry (Updated for Week 5)
 MODEL_REGISTRY = {
   "baseline_v1": "clinical_models/baseline_v1.joblib",
   "classweight_v1": "clinical_models/classweight_v1.joblib",
-  "ros_v1": "clinical_models/ros_v1.joblib"
+  "ros_v1": "clinical_models/ros_v1.joblib",
+  "smote_v1": "clinical_models/smote_v1.joblib"
 }
 
 # Human-readable model labels for UI
 MODEL_LABELS = {
   "baseline_v1": "Standard Model (Baseline)",
   "classweight_v1": "Balanced Model (High Sensitivity)",
-  "ros_v1": "Enhanced Model (Oversampling)"
+  "ros_v1": "Enhanced Model (ROS)",
+  "smote_v1": "Enhanced Model (SMOTE)"
 }
 
 # helpers
@@ -718,6 +774,39 @@ else:
                         st.write(f"Admission Status: **Stable**")
                         st.write(f"Provider: **{st.session_state.user}**")
                         st.write(f"Last Interaction: **{pd.Timestamp.now().strftime('%H:%M')}**")
+
+            # --- Week 5: Interpretability ---
+            st.markdown("---")
+            st.markdown("### INTERPRETABILITY: WHY IS THIS PATIENT AT RISK?")
+            
+            # Load Active Pipeline if not available
+            active_pipe = st.session_state.get('pipeline')
+            if active_pipe is None:
+                active_pipe = load_pipeline(st.session_state.model_version)
+
+            if active_pipe:
+                with st.container(border=True):
+                    st.markdown(f"#### Risk Drivers (Active Model: {MODEL_LABELS.get(st.session_state.model_version)})")
+                    
+                    exp_df = get_local_explanation(active_pipe, patient_row)
+                    
+                    if not exp_df.empty and 'Error' not in exp_df.columns:
+                        # Bar chart for Top Drivers
+                        chart = alt.Chart(exp_df.head(10)).mark_bar().encode(
+                            x=alt.X('Contribution:Q', title="Impact Score"),
+                            y=alt.Y('Feature:N', sort='-x', title=None),
+                            color=alt.condition(
+                                alt.datum.Contribution > 0, 
+                                alt.value("#ef4444"), # Red for positive impact (risk)
+                                alt.value("#22c55e")  # Green for negative impact (protective)
+                            ),
+                            tooltip=['Feature', alt.Tooltip('Contribution:Q', format='.2f')]
+                        ).properties(height=350)
+                        
+                        st.altair_chart(chart, use_container_width=True)
+                        st.info("💡 **Clinical Note:** Red bars increase readmission risk (e.g., high days-in-hospital), while green bars represent protective factors.")
+                    else:
+                        st.error("Could not generate explanation for this patient.")
 
 
 
