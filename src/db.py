@@ -66,15 +66,29 @@ def init_db():
 
 def log_prediction(encounter_id, model_version, risk_probability, predicted_label, threshold_used):
     """Logs individual predictions to the audit trail (Week 4 Requirements)"""
+    log_predictions_batch([(encounter_id, model_version, risk_probability, predicted_label, threshold_used)])
+
+def log_predictions_batch(prediction_list):
+    """Logs a list of predictions in a single transaction for high performance."""
+    if not prediction_list:
+        return
+        
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    c.execute('''
+    # Prepare data for executemany
+    # Expected format of prediction_list inner items: (encounter_id, version, prob, label, threshold)
+    data = [
+        (timestamp, str(p[0]), p[1], float(p[2]), int(p[3]), float(p[4]))
+        for p in prediction_list
+    ]
+    
+    c.executemany('''
         INSERT INTO prediction_audit 
         (timestamp, encounter_id, model_version, risk_probability, predicted_label, threshold_used)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (timestamp, str(encounter_id), model_version, float(risk_probability), int(predicted_label), float(threshold_used)))
+    ''', data)
     
     conn.commit()
     conn.close()

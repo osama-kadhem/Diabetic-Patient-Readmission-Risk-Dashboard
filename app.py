@@ -37,8 +37,9 @@ def get_recommended_stable_pair():
         pass
     return "baseline_v1", "classweight_v1", None
 
-def get_local_explanation(pipeline, patient_row):
-    """Calculates feature contributions for a specific patient (Local Explanation)."""
+@st.cache_data
+def get_local_explanation(pipeline_hash, _pipeline, patient_row):
+    """Calculates feature contributions for a specific patient. Uses pipeline_hash to ensure cache updates if model changes."""
     try:
         # 1. Extract feature columns used during training
         feature_cols = [
@@ -49,19 +50,30 @@ def get_local_explanation(pipeline, patient_row):
         X = patient_row[feature_cols].values.reshape(1, -1)
         
         # 2. Get transformed (scaled) values
-        scaler = pipeline.named_steps['scaler']
+        scaler = _pipeline.named_steps['scaler']
         X_scaled = scaler.transform(X)
         
         # 3. Get coefficients from the Logistic Regression model
-        model = pipeline.named_steps['model'] if 'model' in pipeline.named_steps else pipeline.named_steps['classifier']
+        model = _pipeline.named_steps['model'] if 'model' in _pipeline.named_steps else _pipeline.named_steps['classifier']
         weights = model.coef_[0]
         
         # 4. Calculate contribution: Scaled Value * Coefficient
         contributions = X_scaled[0] * weights
         
-        # Create results dataframe
+        # Create results dataframe with Clinical Terminology
+        name_map = {
+            'Time In Hospital': 'Days in Hospital',
+            'Num Lab Procedures': 'Lab Tests Performed',
+            'Num Procedures': 'Clinical Procedures',
+            'Num Medications': 'Active Medications',
+            'Number Outpatient': 'Prior Outpatient Visits',
+            'Number Emergency': 'Prior Emergency Visits',
+            'Number Inpatient': 'Prior Inpatient Admissions',
+            'Number Diagnoses': 'Comorbidity Count'
+        }
+        
         df_exp = pd.DataFrame({
-            'Feature': [c.replace('_', ' ').title() for c in feature_cols],
+            'Feature': [name_map.get(c.replace('_', ' ').title(), c) for c in feature_cols],
             'Contribution': contributions
         }).sort_values(by='Contribution', ascending=False)
         
@@ -163,9 +175,9 @@ st.markdown("""
         text-transform: uppercase;
     }
     
-    .risk-high { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-    .risk-medium { background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
-    .risk-low { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .risk-high { background-color: #dc2626; color: #ffffff; border: 1px solid #dc2626; }
+    .risk-medium { background-color: #d97706; color: #ffffff; border: 1px solid #d97706; }
+    .risk-low { background-color: #059669; color: #ffffff; border: 1px solid #059669; }
     
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
@@ -432,23 +444,18 @@ with st.sidebar:
                     )
                     st.session_state.predictions = rank_patients(predictions)
                     
-                    # Log to Audit (Week 4 Requirement)
+                    # Log to Audit in high-speed batch (Performance Hack)
                     try:
                         threshold = 0.5 # Default model threshold
+                        batch_data = []
                         for _, row in st.session_state.predictions.iterrows():
-                            # Derivative fields
                             prob = row['risk_probability']
                             label = 1 if prob >= threshold else 0
                             pid = row.get('encounter_id', row.get('patient_id', 'UNKNOWN'))
-                            
-                            db.log_prediction(
-                                encounter_id=pid,
-                                model_version=st.session_state.model_version,
-                                risk_probability=prob,
-                                predicted_label=label,
-                                threshold_used=threshold
-                            )
-                        st.success(f"Analysis Complete & Logged ({len(st.session_state.predictions)} records)")
+                            batch_data.append((pid, st.session_state.model_version, prob, label, threshold))
+                        
+                        db.log_predictions_batch(batch_data)
+                        st.success(f"Analysis Complete & Logged ({len(st.session_state.predictions)} records in batch)")
                     except Exception as e:
                         st.warning(f"Analysis complete but logging failed: {e}")
         else:
@@ -529,7 +536,7 @@ else:
                 
                 with col2:
                     avg_risk = df_pred['risk_probability'].mean()
-                    st.metric("Average Risk", f"{avg_risk:.1%}", help="Mean risk score across all patients")
+                    st.metric("Average Risk", f"{avg_risk:.3%}", help="Mean risk score across all patients")
                 
                 with col3:
                     high_risk_count = len(df_pred[df_pred['risk_band'] == 'High'])
@@ -551,11 +558,30 @@ else:
                     risk_chart = alt.Chart(df_pred).mark_bar().encode(
                         x=alt.X('risk_probability', bin=alt.Bin(maxbins=20), title='Risk Probability'),
                         y=alt.Y('count()', title='Number of Patients'),
-                        color=alt.Color('risk_probability', scale=alt.Scale(scheme='reds'), legend=None),
+                        color=alt.Color('risk_probability', scale=alt.Scale(range=['#059669', '#d97706', '#dc2626']), legend=None),
                         tooltip=['count()', alt.Tooltip('risk_probability', bin=True, title='Risk Range')]
                     ).properties(height=300)
                     
                     st.altair_chart(risk_chart, use_container_width=True)
+                    
+                    # Method structure: Summary badges below (Vertical stacking to match Risk Bands)
+                    def get_band_color(prob):
+                        if prob >= 0.7: return "#dc2626" # High
+                        if prob >= 0.4: return "#d97706" # Medium
+                        return "#059669" # Low
+
+                    avg_p = df_pred['risk_probability'].mean()
+                    max_p = df_pred['risk_probability'].max()
+                    
+                    for label, val in [("AVERAGE", avg_p), ("PEAK", max_p)]:
+                        color = get_band_color(val)
+                        st.markdown(
+                            f'<div style="margin-top:6px; display:flex; justify-content:space-between; align-items:center;">'
+                            f'<span class="risk-badge" style="background-color:{color}; color:white; border:none;">{label}</span>'
+                            f'<span style="font-weight:600;">{val:.3%}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
             
             with col2:
                 with st.container(border=True):
@@ -579,16 +605,16 @@ else:
                     
                     st.altair_chart(donut, use_container_width=True)
                     
-                    # Text summary below donut
+                    # Text summary below donut - Uppercase labels to match graph style
                     for band in ['High', 'Medium', 'Low']:
                         if band in band_counts.index:
                             count = band_counts[band]
                             pct = count / len(df_pred) * 100
                             color_class = f"risk-{band.lower()}"
                             st.markdown(
-                                f'<div style="margin-top:4px; display:flex; justify-content:space-between; align-items:center;">'
-                                f'<span class="risk-badge {color_class}">{band}</span>'
-                                f'<span style="font-weight:600;">{count} ({pct:.1f}%)</span>'
+                                f'<div style="margin-top:6px; display:flex; justify-content:space-between; align-items:center;">'
+                                f'<span class="risk-badge {color_class}">{band.upper()}</span>'
+                                f'<span style="font-weight:600;">{count} ({pct:.3f}%)</span>'
                                 f'</div>',
                                 unsafe_allow_html=True
                             )
@@ -661,7 +687,7 @@ else:
                 
                 # Format display
                 display_df = filtered_df.copy()
-                display_df['Risk Probability'] = display_df['risk_probability'].apply(lambda x: f"{x:.1%}")
+                display_df['Risk Probability'] = display_df['risk_probability'].apply(lambda x: f"{x:.3%}")
                 
                 # Use st.dataframe with column config for better look 
                 st.dataframe(
@@ -788,23 +814,61 @@ else:
                 with st.container(border=True):
                     st.markdown(f"#### Risk Drivers (Active Model: {MODEL_LABELS.get(st.session_state.model_version)})")
                     
-                    exp_df = get_local_explanation(active_pipe, patient_row)
+                    # Compute a hash of the pipeline to trigger cache refresh if model changes
+                    pipeline_hash = hashlib.sha256(str(active_pipe).encode()).hexdigest()
+                    exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
                     
                     if not exp_df.empty and 'Error' not in exp_df.columns:
-                        # Bar chart for Top Drivers
-                        chart = alt.Chart(exp_df.head(10)).mark_bar().encode(
+                        # Upgraded Chart Aesthetics
+                        base = alt.Chart(exp_df.head(10)).encode(
                             x=alt.X('Contribution:Q', title="Impact Score"),
-                            y=alt.Y('Feature:N', sort='-x', title=None),
+                            y=alt.Y('Feature:N', sort='-x', title=None)
+                        )
+                        
+                        bars = base.mark_bar().encode(
                             color=alt.condition(
                                 alt.datum.Contribution > 0, 
-                                alt.value("#ef4444"), # Red for positive impact (risk)
-                                alt.value("#22c55e")  # Green for negative impact (protective)
+                                alt.value("#dc2626"), # Red for positive impact (risk)
+                                alt.value("#059669")  # Green for negative impact (protective)
                             ),
                             tooltip=['Feature', alt.Tooltip('Contribution:Q', format='.2f')]
-                        ).properties(height=350)
+                        )
                         
+                        # Add a zero line
+                        rule = alt.Chart(pd.DataFrame({'x': [0]})).mark_rule(color='#1e293b', size=1.5).encode(x='x')
+                        
+                        chart = (bars + rule).properties(height=350)
                         st.altair_chart(chart, use_container_width=True)
-                        st.info("💡 **Clinical Note:** Red bars increase readmission risk (e.g., high days-in-hospital), while green bars represent protective factors.")
+                        
+                        # Enhanced Method Structure: Risk vs Protective
+                        st.markdown("#### KEY INFLUENCERS")
+                        r_col, p_col = st.columns(2)
+                        
+                        with r_col:
+                            st.markdown("**RISK FACTORS (INCREASES PROBABILITY)**")
+                            risk_factors = exp_df[exp_df['Contribution'] > 0].head(3)
+                            for _, row in risk_factors.iterrows():
+                                st.markdown(
+                                    f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
+                                    f'<span class="risk-badge risk-high">{row["Feature"].upper()}</span>'
+                                    f'<span style="font-weight:600; color:#dc2626;">+{row["Contribution"]:.2f}</span>'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
+                        
+                        with p_col:
+                            st.markdown("**PROTECTIVE FACTORS (DECREASES PROBABILITY)**")
+                            prot_factors = exp_df[exp_df['Contribution'] < 0].sort_values('Contribution').head(3)
+                            for _, row in prot_factors.iterrows():
+                                st.markdown(
+                                    f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
+                                    f'<span class="risk-badge risk-low">{row["Feature"].upper()}</span>'
+                                    f'<span style="font-weight:600; color:#059669;">{row["Contribution"]:.2f}</span>'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
+
+                        st.info("💡 **Clinical Note:** Positive values indicate features that contribute to readmission risk, while negative values represent protective medical factors.")
                     else:
                         st.error("Could not generate explanation for this patient.")
 

@@ -119,7 +119,7 @@ def generate_stability_visuals(stability_df, topk_sets, output_dir="clinical_mod
         if df_topk is not None:
             fig, ax = plt.subplots(figsize=(10, 6))
             # Plot importance
-            bars = ax.barh(df_topk['feature'], df_topk['importance'], color='#0ea5e9')
+            bars = ax.barh(df_topk['feature'], df_topk['importance'], color='#0284c7')
             ax.invert_yaxis() # Highest importance at top
             ax.set_xlabel('Mean |SHAP Value| (Global Importance)')
             ax.set_title(f"Global Risk Drivers: {model_id} (Test Set)")
