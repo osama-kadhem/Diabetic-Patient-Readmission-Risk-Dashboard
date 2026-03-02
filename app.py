@@ -12,6 +12,7 @@ import hashlib
 
 from src.data_validation import validate_csv
 from src.predict import predict_risk, rank_patients
+from src.reports import generate_patient_pdf
 import src.db as db
 
 
@@ -751,9 +752,22 @@ else:
             # Get patient data
             patient_row = df_pred[df_pred['patient_id'] == patient_id].iloc[0]
             
+            # Gather all data for UI and PDF
+            patient_history = db.get_patient_history(patient_id)
+            
+            # Get explanation
+            exp_df = pd.DataFrame()
+            active_pipe = st.session_state.get('pipeline')
+            if active_pipe is None:
+                active_pipe = load_pipeline(st.session_state.model_version)
+            
+            if active_pipe:
+                pipeline_hash = hashlib.sha256(str(active_pipe).encode()).hexdigest()
+                exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
+
             # --- Hero Section ---
             with st.container(border=True):
-                col1, col2, col3 = st.columns([1, 1, 2])
+                col1, col2, col3, col4 = st.columns([1.5, 1, 2, 1.5])
                 
                 with col1:
                     st.markdown(f"**Patient ID**")
@@ -775,6 +789,24 @@ else:
                     st.markdown(f"**30-Day Readmission Probability**")
                     st.markdown(f"<h2 style='color: #0ea5e9;'>{risk_prob:.1%}</h2>", unsafe_allow_html=True)
                     st.caption(f"Follow-up Priority Rank: #{priority}")
+                
+                with col4:
+                    st.markdown("**Export Dossier**")
+                    pdf_buffer = generate_patient_pdf(
+                        patient_row, 
+                        explanation_df=exp_df, 
+                        history_df=patient_history,
+                        user_name=st.session_state.user
+                    )
+                    st.download_button(
+                        label="📄 EXPORT PDF",
+                        data=pdf_buffer,
+                        file_name=f"patient_report_{patient_id}_{pd.Timestamp.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary"
+                    )
+
             
             
                 # --- Clinical Indicators ---
@@ -805,18 +837,9 @@ else:
             st.markdown("---")
             st.markdown("### INTERPRETABILITY: WHY IS THIS PATIENT AT RISK?")
             
-            # Load Active Pipeline if not available
-            active_pipe = st.session_state.get('pipeline')
-            if active_pipe is None:
-                active_pipe = load_pipeline(st.session_state.model_version)
-
-            if active_pipe:
+            if not exp_df.empty:
                 with st.container(border=True):
                     st.markdown(f"#### Risk Drivers (Active Model: {MODEL_LABELS.get(st.session_state.model_version)})")
-                    
-                    # Compute a hash of the pipeline to trigger cache refresh if model changes
-                    pipeline_hash = hashlib.sha256(str(active_pipe).encode()).hexdigest()
-                    exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
                     
                     if not exp_df.empty and 'Error' not in exp_df.columns:
                         # Upgraded Chart Aesthetics
@@ -881,12 +904,7 @@ else:
             # Reporting
 
             with st.container(border=True):
-                # Header with Export Button
-                col_h1, col_h2 = st.columns([3, 1])
-                with col_h1:
-                    st.markdown("#### CASE HISTORY")
-
-
+                st.markdown("#### CASE HISTORY")
 
                 # 1. New Intervention Form
                 with st.expander("LOG NOTES", expanded=True):
@@ -918,8 +936,6 @@ else:
                 
                 # 2. Historical Log from DB
                 st.markdown("##### HISTORY LOG")
-
-                patient_history = db.get_patient_history(patient_id)
                 
                 if not patient_history.empty:
                     # Display history as a clean table make this
