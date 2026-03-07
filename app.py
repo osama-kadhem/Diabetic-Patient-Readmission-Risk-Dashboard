@@ -14,6 +14,11 @@ from src.data_validation import validate_csv
 from src.predict import predict_risk, rank_patients
 from src.reports import generate_patient_pdf
 import src.db as db
+from src.week6_risk import (
+    load_w6_manifest, load_w6_model,
+    render_w6_form, compute_risk_band, interpret_risk,
+    MANIFEST_PATH
+)
 
 
 # --- Week 5 Helpers ---
@@ -215,22 +220,26 @@ if 'selected_patient' not in st.session_state:
 if 'pipeline' not in st.session_state:
     st.session_state.pipeline = None
 if 'model_version' not in st.session_state:
-    st.session_state.model_version = "baseline_v1"
+    st.session_state.model_version = "lr_ros_w6"
+if 'w6_reset_key' not in st.session_state:
+    st.session_state.w6_reset_key = 0
+if 'w6_result' not in st.session_state:
+    st.session_state.w6_result = None
 
-# Model Registry (Updated for Week 5)
+# Model Registry
 MODEL_REGISTRY = {
-  "baseline_v1": "clinical_models/baseline_v1.joblib",
+  "lr_ros_w6":      "clinical_models/lr_ros_w6.joblib",
   "classweight_v1": "clinical_models/classweight_v1.joblib",
-  "ros_v1": "clinical_models/ros_v1.joblib",
-  "smote_v1": "clinical_models/smote_v1.joblib"
+  "ros_v1":         "clinical_models/ros_v1.joblib",
+  "smote_v1":       "clinical_models/smote_v1.joblib"
 }
 
 # Human-readable model labels for UI
 MODEL_LABELS = {
-  "baseline_v1": "Standard Model (Baseline)",
-  "classweight_v1": "Balanced Model (High Sensitivity)",
-  "ros_v1": "Enhanced Model (ROS)",
-  "smote_v1": "Enhanced Model (SMOTE)"
+  "lr_ros_w6":      "LR + ROS (Baseline)",
+  "classweight_v1": "Class-Weighted LR",
+  "ros_v1":         "Random Over-Sampling",
+  "smote_v1":       "SMOTE"
 }
 
 # helpers
@@ -468,58 +477,54 @@ with st.sidebar:
     st.caption(f"v2.5.0 | Build: {pd.Timestamp.now().strftime('%y%m%d')}")
 
 
-# Main content area
+# Main content area — always show 4 tabs; tabs 1-3 require uploaded data
+tab1, tab2, tab3, tab4 = st.tabs(["OVERVIEW", "PRIORITIZATION QUEUE", "PATIENT DOSSIER", "RISK PREDICTOR"])
+
 if st.session_state.uploaded_data is None:
-    # Welcome screen
-    st.info("Ready: Please import data to start.")
+    with tab1:
+        # Welcome screen
+        st.info("Ready: Please import data to start.")
+        st.markdown("### HOW TO USE")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            **1. Upload Patient Data**  
+            Upload a CSV file containing patient encounter information with all required model features.
 
-    
-    st.markdown("### HOW TO USE")
+            **2. Calculate Risk Scores**  
+            The system analyzes each patient and assigns a readmission risk probability (0-1).
 
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        **1. Upload Patient Data**  
-        Upload a CSV file containing patient encounter information with all required model features.
-        
-        **2. Calculate Risk Scores**  
-        The system analyzes each patient and assigns a readmission risk probability (0-1).
-        
-        **3. Set Follow-up Capacity**  
-        Tell us how many patients your team can contact, and we'll prioritize accordingly.
-        """)
-    
-    with col2:
-        st.markdown("""
-        **4. Review Rankings**  
-        See patients sorted by risk probability based on the integrated inference pipeline.
-        
-        **5. View Patient Details**  
-        Click on any patient to see key clinical metrics for the current encounter.
-        
-        **6. System Integrity**  
-        All models are verified via SHA-256 hashes on load to ensure medical data safety.
-        """)
-    
-    st.markdown("### 📊 Sample Data Format")
-    st.markdown("Your CSV should include patient identifiers and clinical features. Example:")
-    
-    sample_data = pd.DataFrame({
-        'patient_id': ['P001', 'P002', 'P003'],
-        'age': [65, 72, 58],
-        'num_medications': [8, 12, 5],
-        'num_diagnoses': [3, 5, 2],
-        'time_in_hospital': [4, 7, 2],
-        'num_procedures': [1, 3, 0],
-        # Add more sample features as needed
-    })
-    st.dataframe(sample_data, use_container_width=True)
+            **3. Set Follow-up Capacity**  
+            Tell us how many patients your team can contact, and we'll prioritize accordingly.
+            """)
+        with col2:
+            st.markdown("""
+            **4. Review Rankings**  
+            See patients sorted by risk probability based on the integrated inference pipeline.
 
-else:
-    # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs(["OVERVIEW", "PRIORITIZATION QUEUE", "PATIENT DOSSIER"])
-    
+            **5. View Patient Details**  
+            Click on any patient to see key clinical metrics for the current encounter.
+
+            **6. System Integrity**  
+            All models are verified via SHA-256 hashes on load to ensure medical data safety.
+            """)
+        st.markdown("### 📊 Sample Data Format")
+        st.markdown("Your CSV should include patient identifiers and clinical features. Example:")
+        sample_data = pd.DataFrame({
+            'patient_id': ['P001', 'P002', 'P003'],
+            'age': [65, 72, 58],
+            'num_medications': [8, 12, 5],
+            'num_diagnoses': [3, 5, 2],
+            'time_in_hospital': [4, 7, 2],
+            'num_procedures': [1, 3, 0],
+        })
+        st.dataframe(sample_data, use_container_width=True)
+    with tab2:
+        st.info("Ready: Please import data to start.")
+    with tab3:
+        st.info("Ready: Please import data to start.")
+
+if st.session_state.uploaded_data is not None:
     with tab1:
         # Overview tab
         st.markdown("### OVERVIEW")
@@ -959,9 +964,133 @@ else:
         else:
             st.info("Ready: Select a patient from the 'PRIORITIZATION QUEUE' tab to view analysis.")
 
+# ── Individual Risk Predictor ────────────────────────────────────────────────
+with tab4:
+    st.markdown("### INDIVIDUAL RISK PREDICTOR")
 
+    # Load manifest once
+    manifest = load_w6_manifest(MANIFEST_PATH)
 
+    if manifest is None:
+        st.warning(
+            "Cannot load `clinical_models/feature_manifest.json`. "
+            "Ensure the file exists and is valid JSON."
+        )
+    else:
+        # Load the model pipeline (cached as a resource)
+        w6_pipeline = load_w6_model(manifest["model_path"])
 
+        if w6_pipeline is None:
+            st.warning(
+                "The readmission risk model could not be loaded. "
+                "Ensure `clinical_models/lr_ros_w6.joblib` is present and intact."
+            )
+        else:
+            # Controls row
+            ctrl_col1, ctrl_col2 = st.columns([4, 1])
+            with ctrl_col1:
+                st.caption("30-day diabetic readmission risk — enter patient values and submit.")
+            with ctrl_col2:
+                if st.button("↺ Reset to Defaults", use_container_width=True):
+                    st.session_state.w6_reset_key += 1
+                    st.session_state.w6_result = None
+                    st.rerun()
+
+            st.markdown("---")
+
+            # ── Dynamic input form ────────────────────────────────────────────
+            with st.form(key="w6_patient_form"):
+                patient_df = render_w6_form(manifest, reset_key=st.session_state.w6_reset_key)
+                st.markdown("---")
+                submitted = st.form_submit_button(
+                    " Calculate Readmission Risk",
+                    type="primary",
+                    use_container_width=True
+                )
+
+            # ── Prediction ────────────────────────────────────────────────────
+            if submitted:
+                try:
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", UserWarning)
+                        prob = float(w6_pipeline.predict_proba(patient_df)[0, 1])
+                    band, band_color = compute_risk_band(prob)
+                    interpretation   = interpret_risk(prob, band)
+                    st.session_state.w6_result = {
+                        "patient_df": patient_df,
+                        "prob": prob,
+                        "band": band,
+                        "band_color": band_color,
+                        "interpretation": interpretation
+                    }
+                except Exception as exc:
+                    st.error(f"⚠️ Prediction failed: {exc}")
+                    st.session_state.w6_result = None
+
+            # ── Results display ───────────────────────────────────────────────
+            if st.session_state.w6_result is not None:
+                res        = st.session_state.w6_result
+                prob       = res["prob"]
+                band       = res["band"]
+                band_color = res["band_color"]
+                interp     = res["interpretation"]
+                patient_df = res["patient_df"]
+
+                st.markdown("### PREDICTION RESULT")
+
+                with st.container(border=True):
+                    r1, r2, r3 = st.columns(3)
+                    with r1:
+                        st.metric(label="30-Day Readmission Probability", value=f"{prob:.1%}")
+                    with r2:
+                        st.metric(label="Risk Percentage", value=f"{prob * 100:.1f}%")
+                    with r3:
+                        st.markdown("**Risk Band**")
+                        st.markdown(
+                            f'<div style="margin-top:5px;">'
+                            f'<span class="risk-badge" style="background-color:{band_color}; '
+                            f'color:#ffffff; border:none; font-size:0.85rem; padding:4px 14px;">'
+                            f'{band.upper()} RISK</span></div>',
+                            unsafe_allow_html=True
+                        )
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    bar_col1, bar_col2 = st.columns([8, 2])
+                    with bar_col1:
+                        st.progress(min(prob, 1.0))
+                    with bar_col2:
+                        st.caption(f"{prob:.1%}")
+
+                # ── Plain-English interpretation ──────────────────────────
+                with st.container(border=True):
+                    st.markdown("#### CLINICAL INTERPRETATION")
+                    st.markdown(interp)
+
+                # ── Patient Input Summary card ────────────────────────────
+                with st.container(border=True):
+                    st.markdown("#### PATIENT INPUT SUMMARY")
+                    st.caption("Selected values used for this prediction:")
+                    summary_rows = []
+                    for col in patient_df.columns:
+                        spec  = manifest["features"].get(col, {})
+                        label = spec.get("description", col.replace("_", " ").title())
+                        summary_rows.append({"Feature": label, "Value": str(patient_df[col].iloc[0])})
+                    summary_df = pd.DataFrame(summary_rows)
+                    half = len(summary_df) // 2
+                    sc1, sc2 = st.columns(2)
+                    with sc1:
+                        st.dataframe(summary_df.iloc[:half], use_container_width=True, hide_index=True)
+                    with sc2:
+                        st.dataframe(summary_df.iloc[half:], use_container_width=True, hide_index=True)
+
+        # ── Academic disclaimer (always visible) ────────────────────────
+        st.markdown("---")
+        st.info(
+            "**Academic Use Only** — This tool is a decision-support prototype "
+            "developed for educational purposes as part of a final-year project. "
+            "It is **not** a real clinical diagnostic tool and must not be used to "
+            "inform actual patient care or treatment decisions."
+        )
 # Footer
 st.markdown("---")
 st.markdown(
