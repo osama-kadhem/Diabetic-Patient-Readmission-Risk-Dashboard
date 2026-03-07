@@ -8,8 +8,6 @@ import io
 import altair as alt
 import hashlib
 
-# imports
-
 from src.data_validation import validate_csv
 from src.predict import predict_risk, rank_patients
 from src.reports import generate_patient_pdf
@@ -21,15 +19,12 @@ from src.week6_risk import (
 )
 
 
-# --- Week 5 Helpers ---
-
 @st.cache_data
 def get_recommended_stable_pair():
     """Loads stability artifacts from the consolidated research location."""
     try:
         df_stab = pd.read_csv("clinical_models/research_week_4_5/stability_metrics_w4_5.csv")
         if not df_stab.empty:
-            # Map artifact names (lr_none, etc) to app registry keys
             mapping = {
                 "lr_none": "baseline_v1",
                 "lr_classweight": "classweight_v1",
@@ -54,19 +49,15 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
             'number_inpatient', 'number_diagnoses'
         ]
         X = patient_row[feature_cols].values.reshape(1, -1)
-        
-        # 2. Get transformed (scaled) values
-        scaler = _pipeline.named_steps['scaler']
+
+        scaler   = _pipeline.named_steps['scaler']
         X_scaled = scaler.transform(X)
-        
-        # 3. Get coefficients from the Logistic Regression model
-        model = _pipeline.named_steps['model'] if 'model' in _pipeline.named_steps else _pipeline.named_steps['classifier']
+
+        model   = _pipeline.named_steps['model'] if 'model' in _pipeline.named_steps else _pipeline.named_steps['classifier']
         weights = model.coef_[0]
-        
-        # 4. Calculate contribution: Scaled Value * Coefficient
+
         contributions = X_scaled[0] * weights
         
-        # Create results dataframe with Clinical Terminology
         name_map = {
             'Time In Hospital': 'Days in Hospital',
             'Num Lab Procedures': 'Lab Tests Performed',
@@ -88,7 +79,6 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
         return pd.DataFrame({'Error': [str(e)]})
 
 
-# Initialize DB
 db.init_db()
 
 # Page configuration
@@ -205,8 +195,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# setup session state
-
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'user' not in st.session_state:
@@ -242,18 +230,12 @@ MODEL_LABELS = {
   "smote_v1":       "SMOTE"
 }
 
-# helpers
-
 def check_model_integrity(file_path):
-    # check if file was changed
-
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
-
-# Login
 
 def login_screen():
     st.markdown("""
@@ -294,10 +276,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# Load model pipeline
 @st.cache_resource
 def load_pipeline(version):
-    # load model
     try:
         model_path = Path(MODEL_REGISTRY[version])
         
@@ -305,10 +285,6 @@ def load_pipeline(version):
             st.error(f"ERR-404: Model file not found at {model_path}.")
             return None
             
-        # Suppress sklearn version warnings for demo purposes
-        import warnings
-        warnings.filterwarnings('ignore', category=UserWarning)
-        
         with open(model_path, 'rb') as f:
             pipeline = joblib.load(f)
         return pipeline
@@ -319,11 +295,9 @@ def load_pipeline(version):
 
 @st.cache_data
 def load_and_validate_data(file_obj):
-    """Cached function to read and validate data"""
     df = pd.read_csv(file_obj)
     return df
 
-# Sidebar: Clinical Controls
 with st.sidebar:
     st.markdown("### ACCOUNT & PRIVACY")
     st.caption("DEBUG MODE: Clinical identifiers exposed for validation.")
@@ -335,13 +309,10 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### SYSTEM CONFIGURATION")
     
-    # 0. Model Version Selector (Week 4)
     st.markdown("#### MODEL VERSION")
     
-    # Custom CSS to disable typing in the selectbox
     st.markdown("""
         <style>
-        /* Disable typing/searching in all selectboxes to maintain 'locked' clinical labels */
         div[data-baseweb="select"] input {
             caret-color: transparent !important;
             user-select: none !important;
@@ -359,10 +330,9 @@ with st.sidebar:
     
     if selected_version != st.session_state.model_version:
         st.session_state.model_version = selected_version
-        st.session_state.pipeline = None # Reset pipeline to force reload
+        st.session_state.pipeline = None
         st.success(f"Model updated: {MODEL_LABELS[selected_version]}")
 
-    # 1. Data Import
     st.markdown("#### DATA IMPORT")
 
     uploaded_file = st.file_uploader(
@@ -373,16 +343,12 @@ with st.sidebar:
     
     if uploaded_file is not None:
         try:
-            # use cached loader
-            df_full = load_and_validate_data(uploaded_file)
-            
-            # Optimization for large datasets via 'Smart Cohort Sampling'
+            df_full    = load_and_validate_data(uploaded_file)
             total_rows = len(df_full)
             if total_rows > 10000:
                 st.warning(f"Large File: {total_rows:,} records. Sampling data...")
 
                 
-                # Option to sample by unique patients to preserve history
                 use_smart_sampling = st.checkbox("Preserve Patient History (Recommended)", value=True, help="Ensures all encounters for a sampled patient are included.")
                 
                 if use_smart_sampling and 'patient_nbr' in df_full.columns:
@@ -401,7 +367,6 @@ with st.sidebar:
             validation_result = validate_csv(df)
             
             if validation_result['is_valid']:
-                # Standardize ID column for the UI
                 if 'patient_nbr' in df.columns:
                     df['patient_id'] = df['patient_nbr']
                     
@@ -419,8 +384,6 @@ with st.sidebar:
     
     
 
-    
-    # 3. Operations
     st.markdown("#### CAPACITY")
 
     if st.session_state.uploaded_data is not None:
@@ -435,7 +398,6 @@ with st.sidebar:
     else:
         top_k = st.number_input("Daily Intervention Capacity", value=20, disabled=True)
     
-    # Run Button
     st.markdown("---")
     if st.button("RUN ANALYSIS", type="primary", use_container_width=True):
 
@@ -446,7 +408,6 @@ with st.sidebar:
             
             if st.session_state.pipeline is not None:
                 with st.spinner("Analyzing..."):
-                    # Predict
                     predictions = predict_risk(
                         st.session_state.uploaded_data, 
                         st.session_state.pipeline,
@@ -454,9 +415,8 @@ with st.sidebar:
                     )
                     st.session_state.predictions = rank_patients(predictions)
                     
-                    # Log to Audit in high-speed batch (Performance Hack)
                     try:
-                        threshold = 0.5 # Default model threshold
+                        threshold  = 0.5
                         batch_data = []
                         for _, row in st.session_state.predictions.iterrows():
                             prob = row['risk_probability']
@@ -471,8 +431,6 @@ with st.sidebar:
         else:
             st.error("Please import data first.")
 
-    # System Status Footer
-    st.markdown("---")
     st.caption("🟢 **System Online**")
     st.caption(f"v2.5.0 | Build: {pd.Timestamp.now().strftime('%y%m%d')}")
 
@@ -570,11 +528,10 @@ if st.session_state.uploaded_data is not None:
                     
                     st.altair_chart(risk_chart, use_container_width=True)
                     
-                    # Method structure: Summary badges below (Vertical stacking to match Risk Bands)
                     def get_band_color(prob):
-                        if prob >= 0.7: return "#dc2626" # High
-                        if prob >= 0.4: return "#d97706" # Medium
-                        return "#059669" # Low
+                        if prob >= 0.7: return "#dc2626"
+                        if prob >= 0.4: return "#d97706"
+                        return "#059669"
 
                     avg_p = df_pred['risk_probability'].mean()
                     max_p = df_pred['risk_probability'].max()
@@ -838,13 +795,11 @@ if st.session_state.uploaded_data is not None:
                         st.write(f"Provider: **{st.session_state.user}**")
                         st.write(f"Last Interaction: **{pd.Timestamp.now().strftime('%H:%M')}**")
 
-            # --- Week 5: Interpretability ---
-            st.markdown("---")
-            st.markdown("### INTERPRETABILITY: WHY IS THIS PATIENT AT RISK?")
+            st.markdown("### INTERPRETABILITY")
             
             if not exp_df.empty:
                 with st.container(border=True):
-                    st.markdown(f"#### Risk Drivers (Active Model: {MODEL_LABELS.get(st.session_state.model_version)})")
+                    st.markdown(f"#### Risk Drivers (Active Model: {MODEL_LABELS.get(st.session_state.model_version)})")  
                     
                     if not exp_df.empty and 'Error' not in exp_df.columns:
                         # Upgraded Chart Aesthetics
@@ -868,7 +823,6 @@ if st.session_state.uploaded_data is not None:
                         chart = (bars + rule).properties(height=350)
                         st.altair_chart(chart, use_container_width=True)
                         
-                        # Enhanced Method Structure: Risk vs Protective
                         st.markdown("#### KEY INFLUENCERS")
                         r_col, p_col = st.columns(2)
                         

@@ -24,7 +24,6 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     pdf = PatientReport()
     pdf.add_page()
     
-    # --- HERO SECTION ---
     pdf.set_font('Arial', 'B', 12)
     pdf.set_fill_color(248, 250, 252) # light background
     pdf.cell(0, 10, f'Patient: {patient_row["patient_id"]}', 0, 1, 'L', fill=True)
