@@ -21,6 +21,54 @@ MANIFEST_PATH = "clinical_models/feature_manifest.json"
 THRESHOLD_HIGH   = 0.40
 THRESHOLD_MEDIUM = 0.20
 
+# Human-readable labels for admission_type_id (UCI dataset coding)
+ADMISSION_TYPE_LABELS: dict[str, str] = {
+    "1": "1 — Emergency",
+    "2": "2 — Urgent",
+    "3": "3 — Elective",
+    "4": "4 — Newborn",
+    "5": "5 — Not Available",
+    "6": "6 — NULL / Unknown",
+    "7": "7 — Trauma Centre",
+    "8": "8 — Not Mapped",
+}
+
+# Human-readable labels for discharge_disposition_id (UCI dataset coding)
+DISCHARGE_LABELS: dict[str, str] = {
+    "1":  "1 — Discharged to Home",
+    "2":  "2 — Discharged to Short-Term Care",
+    "3":  "3 — Discharged / Skilled Nursing Facility",
+    "4":  "4 — Discharged / ICF",
+    "5":  "5 — Discharged to Another Inpatient Care Facility",
+    "6":  "6 — Discharged to Home with Health Service",
+    "7":  "7 — Left AMA (Against Medical Advice)",
+    "8":  "8 — Discharged / Home IV Provider",
+    "9":  "9 — Admitted as Inpatient to This Hospital",
+    "10": "10 — Neonate Discharged to Another Hospital",
+    "11": "11 — Expired",
+    "12": "12 — Still Patient / Expected to Return",
+    "13": "13 — Hospice / Home",
+    "14": "14 — Hospice / Medical Facility",
+    "15": "15 — Discharged / Swing Bed",
+    "16": "16 — Discharged / Outpatient Rehab",
+    "17": "17 — Discharged / Psychiatric Hospital",
+    "18": "18 — NULL / Unknown",
+    "19": "19 — Discharged / Critical Access Hospital",
+    "20": "20 — Discharged / Another Type of Health Care Institution",
+    "22": "22 — Discharged / Rehab Facility",
+    "23": "23 — Discharged / Long-Term Care Hospital",
+    "24": "24 — Discharged / Nursing Facility — Medicaid",
+    "25": "25 — Not Mapped",
+    "27": "27 — Discharged / Federal Health Care Facility",
+    "28": "28 — Discharged / Psychiatric Distinct Part Unit",
+}
+
+# Fields that use a label→value mapping selectbox
+_CODED_FIELDS = {
+    "admission_type_id":      ADMISSION_TYPE_LABELS,
+    "discharge_disposition_id": DISCHARGE_LABELS,
+}
+
 
 def load_w6_manifest(manifest_path: str = MANIFEST_PATH) -> dict | None:
     """Load the feature manifest. Returns None on failure."""
@@ -77,20 +125,21 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
 
     col_left, col_right = st.columns(2)
 
-    # numeric sliders
+    # numeric sliders — always integer step for count features
     with col_left:
         st.markdown("**📊 Clinical Measurements**")
         for feat in num_order:
-            spec = features[feat]
-            step = 1.0 if (spec["max"] - spec["min"]) > 5 else 0.1
+            spec  = features[feat]
+            # use explicit step from manifest if present, otherwise derive from range
+            step  = float(spec.get("step", 1 if (spec["max"] - spec["min"]) <= 14 else 1))
             inputs[feat] = st.slider(
                 label     = spec["description"],
-                min_value = float(spec["min"]),
-                max_value = float(spec["max"]),
-                value     = float(spec["median"]),
-                step      = step,
+                min_value = int(spec["min"]),
+                max_value = int(spec["max"]),
+                value     = int(spec["median"]),
+                step      = int(step),
                 key       = f"w6_slider_{feat}_{reset_key}",
-                help      = f"Range: {spec['min']} – {spec['max']}  |  median: {spec['median']}"
+                help      = f"Range: {int(spec['min'])} – {int(spec['max'])}  |  median: {int(spec['median'])}"
             )
 
     # categorical dropdowns
@@ -99,14 +148,33 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
         for feat in cat_order:
             spec    = features[feat]
             allowed = spec["allowed"]
-            d       = spec.get("default", allowed[0])
-            idx     = allowed.index(d) if d in allowed else 0
-            inputs[feat] = st.selectbox(
-                label   = spec["description"],
-                options = allowed,
-                index   = idx,
-                key     = f"w6_select_{feat}_{reset_key}"
-            )
+
+            if feat in _CODED_FIELDS:
+                # build label list; fall back to raw value if code not in map
+                label_map   = _CODED_FIELDS[feat]
+                label_list  = [label_map.get(v, v) for v in allowed]
+                default_raw = spec.get("default", allowed[0])
+                default_lbl = label_map.get(default_raw, default_raw)
+                idx         = label_list.index(default_lbl) if default_lbl in label_list else 0
+
+                selected_label = st.selectbox(
+                    label   = spec["description"],
+                    options = label_list,
+                    index   = idx,
+                    key     = f"w6_select_{feat}_{reset_key}"
+                )
+                # reverse-map label → raw value for the model
+                reverse = {v: k for k, v in label_map.items()}
+                inputs[feat] = reverse.get(selected_label, selected_label.split(" — ")[0])
+            else:
+                d   = spec.get("default", allowed[0])
+                idx = allowed.index(d) if d in allowed else 0
+                inputs[feat] = st.selectbox(
+                    label   = spec["description"],
+                    options = allowed,
+                    index   = idx,
+                    key     = f"w6_select_{feat}_{reset_key}"
+                )
 
     # return columns in the exact order the pipeline expects
     ordered_cols = num_order + cat_order

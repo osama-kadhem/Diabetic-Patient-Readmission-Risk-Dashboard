@@ -44,42 +44,47 @@
     "time_in_hospital": {
       "type": "numeric",
       "widget": "slider",
+      "step": 1,
       "min": 1.0,
       "max": 14.0,
       "median": 4.0,
-      "description": "Time In Hospital"
+      "description": "Days in Hospital"
     },
     "num_medications": {
       "type": "numeric",
       "widget": "slider",
+      "step": 1,
       "min": 3.0,
       "max": 43.0,
       "median": 15.0,
-      "description": "Num Medications"
+      "description": "Number of Medications"
     },
     "number_inpatient": {
       "type": "numeric",
       "widget": "slider",
+      "step": 1,
       "min": 0.0,
       "max": 6.0,
       "median": 0.0,
-      "description": "Number Inpatient"
+      "description": "Prior Inpatient Visits"
     },
     "number_emergency": {
       "type": "numeric",
       "widget": "slider",
+      "step": 1,
       "min": 0.0,
       "max": 3.0,
       "median": 0.0,
-      "description": "Number Emergency"
+      "description": "Prior Emergency Visits"
     },
     "number_outpatient": {
       "type": "numeric",
       "widget": "slider",
+      "step": 1,
       "min": 0.0,
       "max": 5.0,
       "median": 0.0,
-      "description": "Number Outpatient"
+      "description": "Prior Outpatient Visits"
     },
     "A1Cresult": {
       "type": "categorical",
@@ -90,7 +95,7 @@
         "Norm"
       ],
       "default": ">7",
-      "description": "A1Cresult"
+      "description": "HbA1c Result"
     },
     "insulin": {
       "type": "categorical",
@@ -101,8 +106,8 @@
         "Steady",
         "Up"
       ],
-      "default": "Down",
-      "description": "Insulin"
+      "default": "No",
+      "description": "Insulin Dosage Change"
     },
     "change": {
       "type": "categorical",
@@ -111,8 +116,8 @@
         "Ch",
         "No"
       ],
-      "default": "Ch",
-      "description": "Change"
+      "default": "No",
+      "description": "Change in Medications"
     },
     "diabetesMed": {
       "type": "categorical",
@@ -122,7 +127,7 @@
         "Yes"
       ],
       "default": "No",
-      "description": "Diabetesmed"
+      "description": "Prescribed Diabetes Medication"
     },
     "metformin": {
       "type": "categorical",
@@ -133,8 +138,8 @@
         "Steady",
         "Up"
       ],
-      "default": "Down",
-      "description": "Metformin"
+      "default": "No",
+      "description": "Metformin Dosage"
     },
     "glipizide": {
       "type": "categorical",
@@ -145,8 +150,8 @@
         "Steady",
         "Up"
       ],
-      "default": "Down",
-      "description": "Glipizide"
+      "default": "No",
+      "description": "Glipizide Dosage"
     },
     "glyburide": {
       "type": "categorical",
@@ -157,8 +162,8 @@
         "Steady",
         "Up"
       ],
-      "default": "Down",
-      "description": "Glyburide"
+      "default": "No",
+      "description": "Glyburide Dosage"
     },
     "max_glu_serum": {
       "type": "categorical",
@@ -168,8 +173,8 @@
         ">300",
         "Norm"
       ],
-      "default": ">200",
-      "description": "Max Glu Serum"
+      "default": "Norm",
+      "description": "Max Glucose Serum"
     },
     "admission_type_id": {
       "type": "categorical",
@@ -185,13 +190,21 @@
         "8"
       ],
       "default": "1",
-      "description": "Admission Type Id"
+      "description": "Admission Type"
     },
     "discharge_disposition_id": {
       "type": "categorical",
       "widget": "selectbox",
       "allowed": [
         "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
         "10",
         "11",
         "12",
@@ -202,24 +215,16 @@
         "17",
         "18",
         "19",
-        "2",
         "20",
         "22",
         "23",
         "24",
         "25",
         "27",
-        "28",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9"
+        "28"
       ],
       "default": "1",
-      "description": "Discharge Disposition Id"
+      "description": "Discharge Disposition"
     }
   }
 }
