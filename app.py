@@ -15,7 +15,7 @@ import src.db as db
 from src.week6_risk import (
     load_w6_manifest, load_w6_model,
     render_w6_form, compute_risk_band, interpret_risk,
-    MANIFEST_PATH
+    MANIFEST_PATH, _patch_lr_compat
 )
 
 
@@ -40,41 +40,58 @@ def get_recommended_stable_pair():
 
 @st.cache_data
 def get_local_explanation(pipeline_hash, _pipeline, patient_row):
-    """Calculates feature contributions for a specific patient. Uses pipeline_hash to ensure cache updates if model changes."""
-    try:
-        # 1. Extract feature columns used during training
-        feature_cols = [
-            'time_in_hospital', 'num_lab_procedures', 'num_procedures', 
-            'num_medications', 'number_outpatient', 'number_emergency', 
-            'number_inpatient', 'number_diagnoses'
-        ]
-        X = patient_row[feature_cols].values.reshape(1, -1)
+    """Calculates linear feature contributions for a patient.
 
+    Only works for the 8-feature week-4/5 sklearn Pipelines (scaler -> model).
+    The W6 pipeline uses a ColumnTransformer and a different feature set,
+    so it is intentionally excluded here.
+    """
+    feature_cols = [
+        'time_in_hospital', 'num_lab_procedures', 'num_procedures',
+        'num_medications', 'number_outpatient', 'number_emergency',
+        'number_inpatient', 'number_diagnoses'
+    ]
+
+    # Guard 1: check all required feature columns exist in this patient row
+    missing = [c for c in feature_cols if c not in patient_row.index]
+    if missing:
+        return pd.DataFrame({'Error': [f"Missing feature columns: {missing}"]})
+
+    # Guard 2: the pipeline must have a bare 'scaler' step (week-4/5 only).
+    # The W6 pipeline uses a preprocessor ColumnTransformer - skip it here.
+    if 'scaler' not in _pipeline.named_steps:
+        return pd.DataFrame({'Error': ["Pipeline does not expose a 'scaler' step - explanation unavailable for this model version."]})
+
+    try:
+        X        = patient_row[feature_cols].values.reshape(1, -1)
         scaler   = _pipeline.named_steps['scaler']
         X_scaled = scaler.transform(X)
 
-        model   = _pipeline.named_steps['model'] if 'model' in _pipeline.named_steps else _pipeline.named_steps['classifier']
-        weights = model.coef_[0]
+        model   = _pipeline.named_steps.get('model') or _pipeline.named_steps.get('classifier')
+        if model is None:
+            return pd.DataFrame({'Error': ["No 'model' or 'classifier' step found in pipeline."]})
 
+        weights       = model.coef_[0]
         contributions = X_scaled[0] * weights
-        
+
         name_map = {
-            'Time In Hospital': 'Days in Hospital',
+            'Time In Hospital':   'Days in Hospital',
             'Num Lab Procedures': 'Lab Tests Performed',
-            'Num Procedures': 'Clinical Procedures',
-            'Num Medications': 'Active Medications',
-            'Number Outpatient': 'Prior Outpatient Visits',
-            'Number Emergency': 'Prior Emergency Visits',
-            'Number Inpatient': 'Prior Inpatient Admissions',
-            'Number Diagnoses': 'Comorbidity Count'
+            'Num Procedures':     'Clinical Procedures',
+            'Num Medications':    'Active Medications',
+            'Number Outpatient':  'Prior Outpatient Visits',
+            'Number Emergency':   'Prior Emergency Visits',
+            'Number Inpatient':   'Prior Inpatient Admissions',
+            'Number Diagnoses':   'Comorbidity Count',
         }
-        
+
         df_exp = pd.DataFrame({
-            'Feature': [name_map.get(c.replace('_', ' ').title(), c) for c in feature_cols],
-            'Contribution': contributions
+            'Feature':      [name_map.get(c.replace('_', ' ').title(), c) for c in feature_cols],
+            'Contribution': contributions,
         }).sort_values(by='Contribution', ascending=False)
-        
+
         return df_exp
+
     except Exception as e:
         return pd.DataFrame({'Error': [str(e)]})
 
@@ -195,6 +212,26 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Model Registry — only 8-feature week-4/5 sklearn Pipelines for batch upload.
+# The W6 model (16 features, ColumnTransformer) lives in the Risk Predictor tab.
+MODEL_REGISTRY = {
+  "baseline_v1":    "clinical_models/baseline_v1.joblib",
+  "classweight_v1": "clinical_models/classweight_v1.joblib",
+  "ros_v1":         "clinical_models/ros_v1.joblib",
+  "smote_v1":       "clinical_models/smote_v1.joblib"
+}
+
+# Human-readable model labels for UI
+MODEL_LABELS = {
+  "baseline_v1":    "Standard LR (Baseline)",
+  "classweight_v1": "Class-Weighted LR",
+  "ros_v1":         "Random Over-Sampling",
+  "smote_v1":       "SMOTE"
+}
+
+# Bump this constant to force Streamlit to discard any stale cached pipelines.
+_CACHE_VERSION = 3
+
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'user' not in st.session_state:
@@ -208,27 +245,11 @@ if 'selected_patient' not in st.session_state:
 if 'pipeline' not in st.session_state:
     st.session_state.pipeline = None
 if 'model_version' not in st.session_state:
-    st.session_state.model_version = "lr_ros_w6"
+    st.session_state.model_version = "baseline_v1"
 if 'w6_reset_key' not in st.session_state:
     st.session_state.w6_reset_key = 0
 if 'w6_result' not in st.session_state:
     st.session_state.w6_result = None
-
-# Model Registry
-MODEL_REGISTRY = {
-  "lr_ros_w6":      "clinical_models/lr_ros_w6.joblib",
-  "classweight_v1": "clinical_models/classweight_v1.joblib",
-  "ros_v1":         "clinical_models/ros_v1.joblib",
-  "smote_v1":       "clinical_models/smote_v1.joblib"
-}
-
-# Human-readable model labels for UI
-MODEL_LABELS = {
-  "lr_ros_w6":      "LR + ROS (Baseline)",
-  "classweight_v1": "Class-Weighted LR",
-  "ros_v1":         "Random Over-Sampling",
-  "smote_v1":       "SMOTE"
-}
 
 def check_model_integrity(file_path):
     sha256_hash = hashlib.sha256()
@@ -277,7 +298,8 @@ st.markdown(f"""
 
 
 @st.cache_resource
-def load_pipeline(version):
+def load_pipeline(version, _cache_version=_CACHE_VERSION):
+    """Load a week-4/5 sklearn Pipeline. _cache_version busts stale Streamlit caches."""
     try:
         model_path = Path(MODEL_REGISTRY[version])
         
@@ -287,10 +309,12 @@ def load_pipeline(version):
             
         with open(model_path, 'rb') as f:
             pipeline = joblib.load(f)
+        # Patch missing multi_class attribute (removed in sklearn 1.6) on
+        # any LogisticRegression steps pickled with an older sklearn version.
+        _patch_lr_compat(pipeline)
         return pipeline
     except Exception as e:
         st.error(f"ERR-500: System error loading {version}: {str(e)}")
-        st.warning("This may be due to sklearn version mismatch. Models trained with sklearn 1.8.0 may not work with sklearn 1.6.1.")
         return None
 
 @st.cache_data
@@ -408,12 +432,28 @@ with st.sidebar:
             
             if st.session_state.pipeline is not None:
                 with st.spinner("Analyzing..."):
-                    predictions = predict_risk(
-                        st.session_state.uploaded_data, 
-                        st.session_state.pipeline,
-                        threshold_high=0.7
-                    )
-                    st.session_state.predictions = rank_patients(predictions)
+                    # ── Leakage warning shown in UI ──────────────────────────
+                    _leaky = [c for c in ['readmitted', 'readmitted_binary', 'label', 'target']
+                              if c in st.session_state.uploaded_data.columns]
+                    if _leaky:
+                        st.warning(
+                            f"⚠️ **Data Leakage Detected**: The uploaded file contains "
+                            f"the column(s) `{_leaky}` which are the model's training "
+                            f"target. These have been removed before prediction, but "
+                            f"**this appears to be labelled training data** — probabilities "
+                            f"(especially near 100%) are not clinically valid. "
+                            f"Upload unseen patient encounter data for real predictions."
+                        )
+                    try:
+                        predictions = predict_risk(
+                            st.session_state.uploaded_data, 
+                            st.session_state.pipeline,
+                            threshold_high=0.7
+                        )
+                        st.session_state.predictions = rank_patients(predictions)
+                    except Exception as pred_err:
+                        st.error(f"⚠️ PREDICTION FAILED: {str(pred_err)}")
+                        st.stop()
                     
                     try:
                         threshold  = 0.5
@@ -504,7 +544,10 @@ if st.session_state.uploaded_data is not None:
                 
                 with col3:
                     high_risk_count = len(df_pred[df_pred['risk_band'] == 'High'])
-                    st.metric("High Risk Patients", high_risk_count, delta="Action Required", delta_color="inverse")
+                    if high_risk_count > 0:
+                        st.metric("High Risk Patients", high_risk_count, delta="Action Required", delta_color="inverse")
+                    else:
+                        st.metric("High Risk Patients", high_risk_count, help="No patients currently in the high-risk band")
                 
                 with col4:
                     st.metric("Capacity Target", top_k, help="Number of patients targeted for follow-up")
@@ -518,14 +561,48 @@ if st.session_state.uploaded_data is not None:
                 with st.container(border=True):
                     st.markdown("#### Risk Distribution")
                     
-                    # Interactive Histogram with Altair
-                    risk_chart = alt.Chart(df_pred).mark_bar().encode(
-                        x=alt.X('risk_probability', bin=alt.Bin(maxbins=20), title='Risk Probability'),
+                    # ── Threshold reference lines at 0.4 (medium) and 0.7 (high) ──
+                    thresh_df = pd.DataFrame([
+                        {'threshold': 0.4, 'label': 'Medium threshold'},
+                        {'threshold': 0.7, 'label': 'High threshold'},
+                    ])
+                    thresh_lines = alt.Chart(thresh_df).mark_rule(
+                        strokeDash=[5, 3], strokeWidth=1.5
+                    ).encode(
+                        x=alt.X('threshold:Q'),
+                        color=alt.Color('label:N', scale=alt.Scale(
+                            domain=['Medium threshold', 'High threshold'],
+                            range=['#d97706', '#dc2626']
+                        ), legend=alt.Legend(title='Thresholds'))
+                    )
+
+                    # ── Histogram coloured by risk band ──────────────────────
+                    risk_bars = alt.Chart(df_pred).mark_bar(opacity=0.85).encode(
+                        x=alt.X(
+                            'risk_probability:Q',
+                            bin=alt.Bin(maxbins=30),
+                            title='Risk Probability',
+                            scale=alt.Scale(domain=[0, 1])   # always show full 0→1 axis
+                        ),
                         y=alt.Y('count()', title='Number of Patients'),
-                        color=alt.Color('risk_probability', scale=alt.Scale(range=['#059669', '#d97706', '#dc2626']), legend=None),
-                        tooltip=['count()', alt.Tooltip('risk_probability', bin=True, title='Risk Range')]
+                        color=alt.Color(
+                            'risk_band:N',
+                            scale=alt.Scale(
+                                domain=['High', 'Medium', 'Low'],
+                                range=['#dc2626', '#d97706', '#059669']
+                            ),
+                            legend=alt.Legend(title='Risk Band')
+                        ),
+                        tooltip=[
+                            alt.Tooltip('count()', title='Patients'),
+                            alt.Tooltip('risk_probability:Q', bin=True, title='Probability Range', format='.2f'),
+                            'risk_band:N'
+                        ]
+                    )
+
+                    risk_chart = (risk_bars + thresh_lines).resolve_scale(
+                        color='independent'
                     ).properties(height=300)
-                    
                     st.altair_chart(risk_chart, use_container_width=True)
                     
                     def get_band_color(prob):
@@ -724,7 +801,9 @@ if st.session_state.uploaded_data is not None:
                 active_pipe = load_pipeline(st.session_state.model_version)
             
             if active_pipe:
-                pipeline_hash = hashlib.sha256(str(active_pipe).encode()).hexdigest()
+                # Use joblib.hash() instead of str() to avoid triggering
+                # __repr__ which crashes on sklearn version-mismatched models.
+                pipeline_hash = joblib.hash(active_pipe)
                 exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
 
             # --- Hero Section ---
@@ -802,7 +881,6 @@ if st.session_state.uploaded_data is not None:
                     st.markdown(f"#### Risk Drivers (Active Model: {MODEL_LABELS.get(st.session_state.model_version)})")  
                     
                     if not exp_df.empty and 'Error' not in exp_df.columns:
-                        # Upgraded Chart Aesthetics
                         base = alt.Chart(exp_df.head(10)).encode(
                             x=alt.X('Contribution:Q', title="Impact Score"),
                             y=alt.Y('Feature:N', sort='-x', title=None)
@@ -852,7 +930,8 @@ if st.session_state.uploaded_data is not None:
 
                         st.info("💡 **Clinical Note:** Positive values indicate features that contribute to readmission risk, while negative values represent protective medical factors.")
                     else:
-                        st.error("Could not generate explanation for this patient.")
+                        err_msg = exp_df['Error'].iloc[0] if 'Error' in exp_df.columns else "Unknown error"
+                        st.error(f"Explanation Unavailable: {err_msg}")
 
 
 

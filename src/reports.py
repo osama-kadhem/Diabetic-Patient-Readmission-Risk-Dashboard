@@ -95,7 +95,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     pdf.ln(10)
     
     # --- RISK DRIVERS ---
-    if explanation_df is not None and not explanation_df.empty:
+    if explanation_df is not None and not explanation_df.empty and 'Contribution' in explanation_df.columns:
         pdf.set_font('Arial', 'B', 12)
         pdf.cell(0, 10, 'Interpretability: Key Risk Drivers', 'B', 1, 'L')
         pdf.ln(3)
