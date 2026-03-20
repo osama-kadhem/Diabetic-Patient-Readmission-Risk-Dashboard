@@ -14,7 +14,6 @@ FEATURE_COLS = [
 # Columns that would constitute target leakage if present in the input
 _LEAKY_COLUMNS = ['readmitted', 'readmitted_binary', 'label', 'target']
 
-
 def predict_risk(df, pipeline, threshold_high=0.7, threshold_medium=0.4):
     df_pred = df.copy()
 
@@ -82,7 +81,6 @@ def predict_risk(df, pipeline, threshold_high=0.7, threshold_medium=0.4):
     df_pred['risk_band'] = np.select(conditions, choices, default='Low')
 
     return df_pred
-
 
 def rank_patients(df):
     """Sort by descending risk and assign a 1-based priority rank."""

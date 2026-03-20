@@ -17,7 +17,7 @@ from src.week6_risk import (
     render_w6_form, compute_risk_band, interpret_risk,
     MANIFEST_PATH, _patch_lr_compat
 )
-
+from src.discharge_plan import generate_discharge_plan, generate_patient_discharge_pdf
 
 @st.cache_data
 def get_recommended_stable_pair():
@@ -95,7 +95,6 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
     except Exception as e:
         return pd.DataFrame({'Error': [str(e)]})
 
-
 db.init_db()
 
 # Page configuration
@@ -106,8 +105,6 @@ st.set_page_config(
 )
 
 # Clinical Dashboard Style
-
-
 
 st.markdown("""
 <style>
@@ -250,6 +247,9 @@ if 'w6_reset_key' not in st.session_state:
     st.session_state.w6_reset_key = 0
 if 'w6_result' not in st.session_state:
     st.session_state.w6_result = None
+# Week 7 discharge plan state
+if 'discharge_plan_text' not in st.session_state:
+    st.session_state.discharge_plan_text = None
 
 def check_model_integrity(file_path):
     sha256_hash = hashlib.sha256()
@@ -270,7 +270,6 @@ def login_screen():
 
         st.info("Debug: Click to login")
 
-        
         if st.button("LOGIN", type="primary", use_container_width=True):
 
             st.session_state.authenticated = True
@@ -295,7 +294,6 @@ st.markdown(f"""
 </div>
 </div>
 """, unsafe_allow_html=True)
-
 
 @st.cache_resource
 def load_pipeline(version, _cache_version=_CACHE_VERSION):
@@ -372,7 +370,6 @@ with st.sidebar:
             if total_rows > 10000:
                 st.warning(f"Large File: {total_rows:,} records. Sampling data...")
 
-                
                 use_smart_sampling = st.checkbox("Preserve Patient History (Recommended)", value=True, help="Ensures all encounters for a sampled patient are included.")
                 
                 if use_smart_sampling and 'patient_nbr' in df_full.columns:
@@ -406,8 +403,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    
-
     st.markdown("#### CAPACITY")
 
     if st.session_state.uploaded_data is not None:
@@ -432,21 +427,20 @@ with st.sidebar:
             
             if st.session_state.pipeline is not None:
                 with st.spinner("Analyzing..."):
-                    # ── Leakage warning shown in UI ──────────────────────────
-                    _leaky = [c for c in ['readmitted', 'readmitted_binary', 'label', 'target']
+                    # Silently drop any target/label columns present in the
+                    # uploaded file (expected when using the UCI dataset).
+                    _TARGET_COLS = ['readmitted', 'readmitted_binary', 'label', 'target']
+                    _leaky = [c for c in _TARGET_COLS
                               if c in st.session_state.uploaded_data.columns]
-                    if _leaky:
-                        st.warning(
-                            f"⚠️ **Data Leakage Detected**: The uploaded file contains "
-                            f"the column(s) `{_leaky}` which are the model's training "
-                            f"target. These have been removed before prediction, but "
-                            f"**this appears to be labelled training data** — probabilities "
-                            f"(especially near 100%) are not clinically valid. "
-                            f"Upload unseen patient encounter data for real predictions."
-                        )
+                    data_for_pred = (
+                        st.session_state.uploaded_data.drop(columns=_leaky)
+                        if _leaky
+                        else st.session_state.uploaded_data
+                    )
+
                     try:
                         predictions = predict_risk(
-                            st.session_state.uploaded_data, 
+                            data_for_pred,
                             st.session_state.pipeline,
                             threshold_high=0.7
                         )
@@ -473,7 +467,6 @@ with st.sidebar:
 
     st.caption("🟢 **System Online**")
     st.caption(f"v2.5.0 | Build: {pd.Timestamp.now().strftime('%y%m%d')}")
-
 
 # Main content area — always show 4 tabs; tabs 1-3 require uploaded data
 tab1, tab2, tab3, tab4 = st.tabs(["OVERVIEW", "PRIORITIZATION QUEUE", "PATIENT DOSSIER", "RISK PREDICTOR"])
@@ -527,7 +520,6 @@ if st.session_state.uploaded_data is not None:
         # Overview tab
         st.markdown("### OVERVIEW")
 
-        
         if st.session_state.predictions is not None:
             df_pred = st.session_state.predictions
             
@@ -551,8 +543,6 @@ if st.session_state.uploaded_data is not None:
                 
                 with col4:
                     st.metric("Capacity Target", top_k, help="Number of patients targeted for follow-up")
-            
-
             
             # Charts Row
             col1, col2 = st.columns([2, 1])
@@ -669,7 +659,6 @@ if st.session_state.uploaded_data is not None:
         else:
             st.info("Ready: Run analysis to start.")
 
-            
             # Show raw data preview
             st.subheader("Data Preview")
 
@@ -679,7 +668,6 @@ if st.session_state.uploaded_data is not None:
         # Ranked patient list tab
         st.markdown("### PATIENT LIST")
 
-        
         if st.session_state.predictions is not None:
             df_pred = st.session_state.predictions
             
@@ -694,7 +682,6 @@ if st.session_state.uploaded_data is not None:
                 with col1:
                     search_patient = st.text_input("SEARCH ID", placeholder="Search...")
 
-                
                 with col2:
                     risk_filter = st.multiselect(
                         "Risk Bands",
@@ -774,16 +761,13 @@ if st.session_state.uploaded_data is not None:
                         db.log_audit(st.session_state.user, "PATIENT_DOSSIER_ACCESSED", str(selected))
                         st.success("Loaded.")
 
-        
         else:
             st.info("Ready: Run analysis to start.")
 
-    
     with tab3:
         # Patient details tab
         st.markdown("### PATIENT DETAILS")
 
-        
         if st.session_state.predictions is not None and st.session_state.selected_patient is not None:
             patient_id = st.session_state.selected_patient
             df_pred = st.session_state.predictions
@@ -848,8 +832,6 @@ if st.session_state.uploaded_data is not None:
                         type="primary"
                     )
 
-            
-            
                 # --- Clinical Indicators ---
                 col1, col2 = st.columns(2)
                 
@@ -933,12 +915,6 @@ if st.session_state.uploaded_data is not None:
                         err_msg = exp_df['Error'].iloc[0] if 'Error' in exp_df.columns else "Unknown error"
                         st.error(f"Explanation Unavailable: {err_msg}")
 
-
-
-
-
-
-
             # Reporting
 
             with st.container(border=True):
@@ -960,10 +936,8 @@ if st.session_state.uploaded_data is not None:
                         
                         notes_text = st.text_area("NOTES", placeholder="Enter notes...", height=100)
 
-                        
                         submit_log = st.form_submit_button("SAVE", use_container_width=True)
 
-                        
                         if submit_log:
                             # Log to Database
                             success = db.log_intervention(patient_id, action_type, st.session_state.user, notes_text)
@@ -990,6 +964,87 @@ if st.session_state.uploaded_data is not None:
                     )
                 else:
                     st.info("No prior interventions recorded for this patient.")
+
+            # ── Discharge Plan ─────────────────────────────────────────────
+            st.markdown("### 📋 DISCHARGE PLAN")
+            with st.container(border=True):
+                st.caption(
+                    "Rule-based discharge recommendation derived from this patient's "
+                    "risk score and feature drivers. Risk is banded (LOW / MODERATE / HIGH) "
+                    "— raw probabilities are not presented as precise clinical estimates."
+                )
+
+                # Auto-clear plan when the clinician switches to a different patient
+                if st.session_state.get("discharge_plan_patient_id") != patient_id:
+                    st.session_state.discharge_plan_text = None
+                    st.session_state["discharge_plan_patient_id"] = patient_id
+
+                # Get top features from existing exp_df (already computed above)
+                if not exp_df.empty and "Error" not in exp_df.columns:
+                    dp_top_features = (
+                        exp_df.sort_values("Contribution", ascending=False)["Feature"]
+                        .tolist()
+                    )
+                else:
+                    dp_top_features = ["risk_probability"]
+
+                dp_col, _ = st.columns([1, 3])
+                with dp_col:
+                    dp_btn = st.button(
+                        "⚕️ Generate Discharge Plan",
+                        type="primary",
+                        use_container_width=True,
+                        key="dp_generate_btn",
+                    )
+
+                if dp_btn:
+                    plan_text = generate_discharge_plan(
+                        patient_row  = patient_row.to_dict(),
+                        risk_score   = float(risk_prob),
+                        top_features = dp_top_features,
+                        model_id     = st.session_state.model_version,
+                    )
+                    st.session_state.discharge_plan_text = plan_text
+                    st.session_state["discharge_plan_patient_id"] = patient_id
+                    db.log_audit(
+                        st.session_state.user,
+                        "DISCHARGE_PLAN_GENERATED",
+                        f"patient={patient_id} model={st.session_state.model_version}",
+                    )
+
+                if st.session_state.discharge_plan_text:
+                    with st.container(border=True):
+                        st.markdown(st.session_state.discharge_plan_text)
+
+                    # Patient PDF download
+                    st.markdown("#### 📥 Patient Copy")
+                    st.caption(
+                        "Download a plain-English letter for the patient with personalised "
+                        "diet, exercise, medication, and 'when to return' advice."
+                    )
+                    try:
+                        pdf_buf = generate_patient_discharge_pdf(
+                            patient_id   = str(patient_id),
+                            patient_row  = patient_row.to_dict(),
+                            risk_score   = float(risk_prob),
+                            top_features = dp_top_features,
+                            model_id     = st.session_state.model_version,
+                        )
+                        from datetime import datetime
+                        st.download_button(
+                            label            = "📄 Download Patient Discharge Letter (PDF)",
+                            data             = pdf_buf,
+                            file_name        = f"discharge_letter_{patient_id}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime             = "application/pdf",
+                            use_container_width = True,
+                            type             = "primary",
+                        )
+                    except Exception as pdf_err:
+                        st.warning(f"⚠️ Could not generate patient PDF: {pdf_err}")
+
+                    if st.button("🗑 Clear Plan", key="dp_clear_btn"):
+                        st.session_state.discharge_plan_text = None
+                        st.rerun()
         
         elif st.session_state.predictions is None:
             st.info("Ready: Run analysis to start.")
@@ -1019,47 +1074,44 @@ with tab4:
                 "Ensure `clinical_models/lr_ros_w6.joblib` is present and intact."
             )
         else:
-            # Controls row
-            ctrl_col1, ctrl_col2 = st.columns([4, 1])
-            with ctrl_col1:
-                st.caption("30-day diabetic readmission risk — enter patient values and submit.")
-            with ctrl_col2:
-                if st.button("↺ Reset to Defaults", use_container_width=True):
+            # Compact Header Row
+            hdr_col1, hdr_col2 = st.columns([3, 1])
+            with hdr_col1:
+                 st.caption("Enter patient clinical values below to compute a real-time hospital readmission risk score.")
+            with hdr_col2:
+                if st.button("↺ Reset Form", use_container_width=True):
                     st.session_state.w6_reset_key += 1
                     st.session_state.w6_result = None
                     st.rerun()
 
-            st.markdown("---")
-
             # ── Dynamic input form ────────────────────────────────────────────
-            with st.form(key="w6_patient_form"):
-                patient_df = render_w6_form(manifest, reset_key=st.session_state.w6_reset_key)
-                st.markdown("---")
-                submitted = st.form_submit_button(
-                    " Calculate Readmission Risk",
-                    type="primary",
-                    use_container_width=True
-                )
-
-            # ── Prediction ────────────────────────────────────────────────────
-            if submitted:
-                try:
-                    import warnings
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", UserWarning)
-                        prob = float(w6_pipeline.predict_proba(patient_df)[0, 1])
-                    band, band_color = compute_risk_band(prob)
-                    interpretation   = interpret_risk(prob, band)
-                    st.session_state.w6_result = {
-                        "patient_df": patient_df,
-                        "prob": prob,
-                        "band": band,
-                        "band_color": band_color,
-                        "interpretation": interpretation
-                    }
-                except Exception as exc:
-                    st.error(f"⚠️ Prediction failed: {exc}")
-                    st.session_state.w6_result = None
+            with st.container(border=True):
+                with st.form(key="w6_patient_form", border=False):
+                    patient_df = render_w6_form(manifest, reset_key=st.session_state.w6_reset_key)
+                    submitted = st.form_submit_button(
+                        "RUN CLINICAL RISK ANALYSIS",
+                        type="primary",
+                        use_container_width=True
+                    )
+                
+                if submitted:
+                    try:
+                        import warnings
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", UserWarning)
+                            prob = float(w6_pipeline.predict_proba(patient_df)[0, 1])
+                        band, band_color = compute_risk_band(prob)
+                        interpretation   = interpret_risk(prob, band)
+                        st.session_state.w6_result = {
+                            "patient_df": patient_df,
+                            "prob": prob,
+                            "band": band,
+                            "band_color": band_color,
+                            "interpretation": interpretation
+                        }
+                    except Exception as exc:
+                        st.error(f"⚠️ Prediction failed: {exc}")
+                        st.session_state.w6_result = None
 
             # ── Results display ───────────────────────────────────────────────
             if st.session_state.w6_result is not None:
@@ -1070,34 +1122,28 @@ with tab4:
                 interp     = res["interpretation"]
                 patient_df = res["patient_df"]
 
-                st.markdown("### PREDICTION RESULT")
-
+                # Combined Results & Interpretation Container
                 with st.container(border=True):
-                    r1, r2, r3 = st.columns(3)
-                    with r1:
-                        st.metric(label="30-Day Readmission Probability", value=f"{prob:.1%}")
-                    with r2:
-                        st.metric(label="Risk Percentage", value=f"{prob * 100:.1f}%")
-                    with r3:
-                        st.markdown("**Risk Band**")
+                    st.markdown("### 📊 READMISSION RISK ASSESSMENT")
+                    
+                    m1, m2, m3 = st.columns([1, 1, 1])
+                    with m1:
+                        st.metric("Readmission Prob.", f"{prob:.1%}")
+                    with m2:
+                        st.metric("Risk Level", band.upper())
+                    with m3:
+                        st.markdown("**Risk Status**")
                         st.markdown(
                             f'<div style="margin-top:5px;">'
                             f'<span class="risk-badge" style="background-color:{band_color}; '
-                            f'color:#ffffff; border:none; font-size:0.85rem; padding:4px 14px;">'
+                            f'color:#ffffff; border:none; border-radius:4px; padding:6px 16px; font-weight:700;">'
                             f'{band.upper()} RISK</span></div>',
                             unsafe_allow_html=True
                         )
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    bar_col1, bar_col2 = st.columns([8, 2])
-                    with bar_col1:
-                        st.progress(min(prob, 1.0))
-                    with bar_col2:
-                        st.caption(f"{prob:.1%}")
-
-                # ── Plain-English interpretation ──────────────────────────
-                with st.container(border=True):
+                    
+                    st.markdown("---")
                     st.markdown("#### CLINICAL INTERPRETATION")
-                    st.markdown(interp)
+                    st.info(interp)
 
                 # ── Patient Input Summary card ────────────────────────────
                 with st.container(border=True):

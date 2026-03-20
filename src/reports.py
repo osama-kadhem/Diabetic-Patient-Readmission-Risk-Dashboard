@@ -150,7 +150,6 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
         pdf.set_text_color(0, 0, 0)
         pdf.ln(6)
 
-        
     # --- CASE HISTORY ---
     if history_df is not None and not history_df.empty:
         pdf.set_font('Arial', 'B', 12)
@@ -179,8 +178,6 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             pdf.line(10, pdf.get_y(), 200, pdf.get_y())
             pdf.ln(3)
 
-            
-    # Return buffer
     buffer = io.BytesIO()
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, str):

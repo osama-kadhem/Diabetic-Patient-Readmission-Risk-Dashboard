@@ -114,8 +114,7 @@ def load_w6_model(model_path: str):
 
 def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
     """
-    Render the patient input form from the manifest.
-    Returns a single-row DataFrame ready for predict_proba().
+    Render the patient input form from the manifest in a compact 3-column layout.
     """
     features  = manifest["features"]
     num_order = manifest["num_features"]
@@ -123,15 +122,18 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
 
     inputs: dict[str, object] = {}
 
-    col_left, col_right = st.columns(2)
+    # Organize features into three logical groups
+    # Group 1: Core Metrics (Numbers)
+    # Group 2: Medications (Categorical)
+    # Group 3: Admission/Other (Categorical)
+    
+    col1, col2, col3 = st.columns(3)
 
-    # numeric sliders — always integer step for count features
-    with col_left:
-        st.markdown("**📊 Clinical Measurements**")
+    with col1:
+        st.markdown("**📊 Vitals & Labs**")
         for feat in num_order:
             spec  = features[feat]
-            # use explicit step from manifest if present, otherwise derive from range
-            step  = float(spec.get("step", 1 if (spec["max"] - spec["min"]) <= 14 else 1))
+            step  = float(spec.get("step", 1))
             inputs[feat] = st.slider(
                 label     = spec["description"],
                 min_value = int(spec["min"]),
@@ -139,18 +141,20 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                 value     = int(spec["median"]),
                 step      = int(step),
                 key       = f"w6_slider_{feat}_{reset_key}",
-                help      = f"Range: {int(spec['min'])} – {int(spec['max'])}  |  median: {int(spec['median'])}"
             )
 
-    # categorical dropdowns
-    with col_right:
-        st.markdown("**💊 Medications & Admission**")
-        for feat in cat_order:
+    # Split categorical features between col2 and col3
+    mid = len(cat_order) // 2
+    med_features = cat_order[:mid]
+    adm_features = cat_order[mid:]
+
+    with col2:
+        st.markdown("**💊 Medications**")
+        for feat in med_features:
             spec    = features[feat]
             allowed = spec["allowed"]
-
+            
             if feat in _CODED_FIELDS:
-                # build label list; fall back to raw value if code not in map
                 label_map   = _CODED_FIELDS[feat]
                 label_list  = [label_map.get(v, v) for v in allowed]
                 default_raw = spec.get("default", allowed[0])
@@ -163,7 +167,6 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     index   = idx,
                     key     = f"w6_select_{feat}_{reset_key}"
                 )
-                # reverse-map label → raw value for the model
                 reverse = {v: k for k, v in label_map.items()}
                 inputs[feat] = reverse.get(selected_label, selected_label.split(" — ")[0])
             else:
@@ -176,7 +179,37 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     key     = f"w6_select_{feat}_{reset_key}"
                 )
 
-    # return columns in the exact order the pipeline expects
+    with col3:
+        st.markdown("**🏥 Admission Info**")
+        for feat in adm_features:
+            spec    = features[feat]
+            allowed = spec["allowed"]
+            
+            if feat in _CODED_FIELDS:
+                label_map   = _CODED_FIELDS[feat]
+                label_list  = [label_map.get(v, v) for v in allowed]
+                default_raw = spec.get("default", allowed[0])
+                default_lbl = label_map.get(default_raw, default_raw)
+                idx         = label_list.index(default_lbl) if default_lbl in label_list else 0
+
+                selected_label = st.selectbox(
+                    label   = spec["description"],
+                    options = label_list,
+                    index   = idx,
+                    key     = f"w6_select_{feat}_{reset_key}"
+                )
+                reverse = {v: k for k, v in label_map.items()}
+                inputs[feat] = reverse.get(selected_label, selected_label.split(" — ")[0])
+            else:
+                d   = spec.get("default", allowed[0])
+                idx = allowed.index(d) if d in allowed else 0
+                inputs[feat] = st.selectbox(
+                    label   = spec["description"],
+                    options = allowed,
+                    index   = idx,
+                    key     = f"w6_select_{feat}_{reset_key}"
+                )
+
     ordered_cols = num_order + cat_order
     return pd.DataFrame([{k: inputs[k] for k in ordered_cols}])
 
