@@ -267,14 +267,10 @@ def login_screen():
 """, unsafe_allow_html=True)
     
     with st.container(border=True):
-
-        st.info("Debug: Click to login")
-
         if st.button("LOGIN", type="primary", use_container_width=True):
-
             st.session_state.authenticated = True
             st.session_state.user = "DR. OSAMA SALEH"
-            db.log_audit(st.session_state.user, "DEBUG_LOGIN_SUCCESS")
+            db.log_audit(st.session_state.user, "LOGIN")
             st.rerun()
 
 if not st.session_state.authenticated:
@@ -322,7 +318,6 @@ def load_and_validate_data(file_obj):
 
 with st.sidebar:
     st.markdown("### ACCOUNT & PRIVACY")
-    st.caption("DEBUG MODE: Clinical identifiers exposed for validation.")
     if st.button("SECURE LOGOUT"):
         db.log_audit(st.session_state.user, "LOGOUT")
         st.session_state.authenticated = False
@@ -421,7 +416,6 @@ with st.sidebar:
     if st.button("RUN ANALYSIS", type="primary", use_container_width=True):
 
         if st.session_state.uploaded_data is not None:
-            # Load pipeline for the selected version
             if st.session_state.pipeline is None:
                 st.session_state.pipeline = load_pipeline(st.session_state.model_version)
             
@@ -635,7 +629,6 @@ if st.session_state.uploaded_data is not None:
                     
                     st.altair_chart(donut, use_container_width=True)
                     
-                    # Text summary below donut - Uppercase labels to match graph style
                     for band in ['High', 'Medium', 'Low']:
                         if band in band_counts.index:
                             count = band_counts[band]
@@ -658,20 +651,16 @@ if st.session_state.uploaded_data is not None:
             
         else:
             st.info("Ready: Run analysis to start.")
-
-            # Show raw data preview
             st.subheader("Data Preview")
 
             st.dataframe(st.session_state.uploaded_data.head(10), use_container_width=True)
     
     with tab2:
-        # Ranked patient list tab
         st.markdown("### PATIENT LIST")
 
         if st.session_state.predictions is not None:
             df_pred = st.session_state.predictions
-            
-            # Start Main Container
+
             with st.container(border=True):
                 
                 # Filters and search
@@ -694,7 +683,6 @@ if st.session_state.uploaded_data is not None:
                 
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # Apply filters logic
             filtered_df = df_pred.copy()
             if search_patient:
                 filtered_df = filtered_df[
@@ -705,18 +693,14 @@ if st.session_state.uploaded_data is not None:
             if show_top_k_only:
                 filtered_df = filtered_df.head(top_k)
             
-            # Display table container
             with st.container(border=True):
                 
                 col_header1, col_header2 = st.columns([1, 1])
                 with col_header1:
                     st.markdown(f"#### Patient List ({len(filtered_df)} matches)")
                 
-                # Format display
                 display_df = filtered_df.copy()
                 display_df['Risk Probability'] = display_df['risk_probability'].apply(lambda x: f"{x:.3%}")
-                
-                # Use st.dataframe with column config for better look 
                 st.dataframe(
                     display_df[['patient_id', 'Risk Probability', 'risk_band', 'follow_up_priority']],
                     column_config={
@@ -740,7 +724,6 @@ if st.session_state.uploaded_data is not None:
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 
-            # Quick Selection for Details
             with st.container():
                 st.markdown('<div class="stCard">', unsafe_allow_html=True)
                 st.markdown("#### View Patient Details")
@@ -757,7 +740,6 @@ if st.session_state.uploaded_data is not None:
                 with col_sel2:
                     if selected:
                         st.session_state.selected_patient = selected
-                        # Audit dossier load
                         db.log_audit(st.session_state.user, "PATIENT_DOSSIER_ACCESSED", str(selected))
                         st.success("Loaded.")
 
@@ -765,20 +747,15 @@ if st.session_state.uploaded_data is not None:
             st.info("Ready: Run analysis to start.")
 
     with tab3:
-        # Patient details tab
         st.markdown("### PATIENT DETAILS")
 
         if st.session_state.predictions is not None and st.session_state.selected_patient is not None:
             patient_id = st.session_state.selected_patient
             df_pred = st.session_state.predictions
-            
-            # Get patient data
+
             patient_row = df_pred[df_pred['patient_id'] == patient_id].iloc[0]
-            
-            # Gather all data for UI and PDF
             patient_history = db.get_patient_history(patient_id)
-            
-            # Get explanation
+
             exp_df = pd.DataFrame()
             active_pipe = st.session_state.get('pipeline')
             if active_pipe is None:
@@ -946,11 +923,8 @@ if st.session_state.uploaded_data is not None:
 
                                 st.rerun() # Rerun to show in history immediately
                 
-                # 2. Historical Log from DB
                 st.markdown("##### HISTORY LOG")
-                
                 if not patient_history.empty:
-                    # Display history as a clean table make this
                     st.dataframe(
                         patient_history[['timestamp', 'action_type', 'notes', 'clinician']],
                         column_config={
@@ -979,7 +953,6 @@ if st.session_state.uploaded_data is not None:
                     st.session_state.discharge_plan_text = None
                     st.session_state["discharge_plan_patient_id"] = patient_id
 
-                # Get top features from existing exp_df (already computed above)
                 if not exp_df.empty and "Error" not in exp_df.columns:
                     dp_top_features = (
                         exp_df.sort_values("Contribution", ascending=False)["Feature"]
@@ -1056,7 +1029,6 @@ if st.session_state.uploaded_data is not None:
 with tab4:
     st.markdown("### INDIVIDUAL RISK PREDICTOR")
 
-    # Load manifest once
     manifest = load_w6_manifest(MANIFEST_PATH)
 
     if manifest is None:
@@ -1065,7 +1037,6 @@ with tab4:
             "Ensure the file exists and is valid JSON."
         )
     else:
-        # Load the model pipeline (cached as a resource)
         w6_pipeline = load_w6_model(manifest["model_path"])
 
         if w6_pipeline is None:

@@ -49,9 +49,7 @@ def predict_risk(df, pipeline, threshold_high=0.7, threshold_medium=0.4):
             UserWarning, stacklevel=2
         )
         try:
-            # We must use exactly the features the pipeline expects, or it will throw a shape/feature mismatch.
-            # If the pipeline was trained on 8 features, it EXPECTS 8 features. 
-            # Trying to predict on [valid_cols] (e.g. 7 features) WILL fail for these week-4/5 models.
+            # Pipeline requires all 8 training features; predict on the full expected set.
             probs = pipeline.predict_proba(df[FEATURE_COLS])[:, 1]
             df_pred['risk_probability'] = probs
         except Exception as e:

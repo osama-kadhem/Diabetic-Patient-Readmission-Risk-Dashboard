@@ -19,19 +19,17 @@ def compute_stability(pipes, X_test, topk=10):
     for model_id, pipeline in pipes.items():
         print(f"  Processing {model_id}...")
         
-        # We use a subset of test data for speed if it's large
+        # Limit sample size to keep SHAP computation fast
         X_sample = X_test.head(100) if len(X_test) > 100 else X_test
         
         # Preprocess the sample
         scaler = pipeline.named_steps['scaler']
         X_transformed = scaler.transform(X_sample)
         
-        # Get feature names (assuming the order in the pipeline matches the FEATURE list)
-        # Note: If using columns from DataFrame, it's safer
+        # Get feature names from test DataFrame columns
         feature_names = X_test.columns.tolist()
         
-        # Compute SHAP values
-        # For Logistic Regression, we can use LinearExplainer
+        # For LR pipelines use a LinearExplainer
         model = pipeline.named_steps['model'] if 'model' in pipeline.named_steps else pipeline.named_steps['classifier']
         explainer = shap.LinearExplainer(model, X_transformed)
         shap_values = explainer.shap_values(X_transformed)

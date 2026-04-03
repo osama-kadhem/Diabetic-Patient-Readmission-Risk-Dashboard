@@ -1,6 +1,5 @@
 import pandas as pd
 
-# required columns
 REQUIRED_COLUMNS = [
     'patient_nbr', 'race', 'gender', 'age', 'time_in_hospital',
     'num_lab_procedures', 'num_procedures', 'num_medications',
@@ -9,7 +8,6 @@ REQUIRED_COLUMNS = [
 ]
 
 def validate_csv(df):
-    # check columns
     missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     
     if len(missing_cols) > 0:
