@@ -15,7 +15,7 @@ def compute_stability(pipes, X_test, topk=10):
     topk_sets = {}
     stability_results = []
     
-    # 1. Get Top-K features for each model
+    # Getting Top-K features for models
     for model_id, pipeline in pipes.items():
         print(f"  Processing {model_id}...")
         
@@ -50,7 +50,7 @@ def compute_stability(pipes, X_test, topk=10):
         }).head(topk)
         topk_sets[f"{model_id}_df"] = df_topk
 
-    # 2. Pairwise Comparison
+    # Pairwise comparison to determine stability
     model_ids = list(pipes.keys())
     for i in range(len(model_ids)):
         for j in range(i + 1, len(model_ids)):
@@ -76,7 +76,7 @@ def generate_stability_visuals(stability_df, topk_sets, output_dir="clinical_mod
     """Generates heatmaps and bar charts for the stability report."""
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Heatmap visualization
+    # Heatmap visualization generation
     model_ids = sorted(list(set(stability_df['model_a']).union(set(stability_df['model_b']))))
     n = len(model_ids)
     
@@ -111,7 +111,7 @@ def generate_stability_visuals(stability_df, topk_sets, output_dir="clinical_mod
     
     print(f"✅ Generated stability heatmap: {img_path}")
 
-    # 2. Individual Model Driver Visuals
+    # Driver Visuals
     for model_id in model_ids:
         df_topk = topk_sets.get(f"{model_id}_df")
         if df_topk is not None:

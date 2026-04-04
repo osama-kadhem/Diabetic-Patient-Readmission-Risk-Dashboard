@@ -1,6 +1,0 @@
-{
-  "version_id": "classweight_v1",
-  "label": "Balanced Model",
-  "strategy": "class_weight",
-  "seed": 42
-}

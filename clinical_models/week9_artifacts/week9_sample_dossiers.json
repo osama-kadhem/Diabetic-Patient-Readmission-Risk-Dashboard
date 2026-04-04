@@ -1,0 +1,117 @@
+[
+  {
+    "risk_score": 0.5484,
+    "risk_band": "MODERATE",
+    "top_drivers": [
+      "diag_1_V58",
+      "age_[0-10)",
+      "diag_2_782",
+      "diag_1_654",
+      "diag_1_V55"
+    ],
+    "urgency": "Moderate \u2014 follow-up within 14 days",
+    "medication_review": true,
+    "glucose_monitoring": "Weekly glucose check recommended",
+    "patient_education": "Medication adherence and diet counselling",
+    "outpatient_review": "GP or practice nurse review within 2 weeks",
+    "clinical_notes": "Patient flagged as MODERATE RISK. Ensure discharge letter includes medication changes and monitoring plan.",
+    "model_version": "lr_classweight_w7",
+    "model_sha256": "e56f1ab7964b2d8baf8be69e8e5ec9877a0bf36ba7f1fa0a00a2d1f9d671889c",
+    "threshold_used": 0.5143,
+    "tau_high_recall": 0.6037,
+    "tau_best_f1": 0.5143,
+    "patient_index": 0
+  },
+  {
+    "risk_score": 0.3678,
+    "risk_band": "LOW",
+    "top_drivers": [
+      "diag_1_V58",
+      "age_[0-10)",
+      "diag_2_782",
+      "diag_1_654",
+      "diag_1_V55"
+    ],
+    "urgency": "Routine \u2014 standard discharge pathway",
+    "medication_review": false,
+    "glucose_monitoring": "Routine HbA1c at next scheduled appointment",
+    "patient_education": "Standard discharge leaflet provided",
+    "outpatient_review": "Routine GP review",
+    "clinical_notes": "Patient assessed as LOW RISK. Proceed with standard discharge.",
+    "model_version": "lr_classweight_w7",
+    "model_sha256": "e56f1ab7964b2d8baf8be69e8e5ec9877a0bf36ba7f1fa0a00a2d1f9d671889c",
+    "threshold_used": 0.5143,
+    "tau_high_recall": 0.6037,
+    "tau_best_f1": 0.5143,
+    "patient_index": 1
+  },
+  {
+    "risk_score": 0.5656,
+    "risk_band": "MODERATE",
+    "top_drivers": [
+      "diag_1_V58",
+      "age_[0-10)",
+      "diag_2_782",
+      "diag_1_654",
+      "diag_1_V55"
+    ],
+    "urgency": "Moderate \u2014 follow-up within 14 days",
+    "medication_review": true,
+    "glucose_monitoring": "Weekly glucose check recommended",
+    "patient_education": "Medication adherence and diet counselling",
+    "outpatient_review": "GP or practice nurse review within 2 weeks",
+    "clinical_notes": "Patient flagged as MODERATE RISK. Ensure discharge letter includes medication changes and monitoring plan.",
+    "model_version": "lr_classweight_w7",
+    "model_sha256": "e56f1ab7964b2d8baf8be69e8e5ec9877a0bf36ba7f1fa0a00a2d1f9d671889c",
+    "threshold_used": 0.5143,
+    "tau_high_recall": 0.6037,
+    "tau_best_f1": 0.5143,
+    "patient_index": 2
+  },
+  {
+    "risk_score": 0.5483,
+    "risk_band": "MODERATE",
+    "top_drivers": [
+      "diag_1_V58",
+      "age_[0-10)",
+      "diag_2_782",
+      "diag_1_654",
+      "diag_1_V55"
+    ],
+    "urgency": "Moderate \u2014 follow-up within 14 days",
+    "medication_review": true,
+    "glucose_monitoring": "Weekly glucose check recommended",
+    "patient_education": "Medication adherence and diet counselling",
+    "outpatient_review": "GP or practice nurse review within 2 weeks",
+    "clinical_notes": "Patient flagged as MODERATE RISK. Ensure discharge letter includes medication changes and monitoring plan.",
+    "model_version": "lr_classweight_w7",
+    "model_sha256": "e56f1ab7964b2d8baf8be69e8e5ec9877a0bf36ba7f1fa0a00a2d1f9d671889c",
+    "threshold_used": 0.5143,
+    "tau_high_recall": 0.6037,
+    "tau_best_f1": 0.5143,
+    "patient_index": 3
+  },
+  {
+    "risk_score": 0.4191,
+    "risk_band": "LOW",
+    "top_drivers": [
+      "diag_1_V58",
+      "age_[0-10)",
+      "diag_2_782",
+      "diag_1_654",
+      "diag_1_V55"
+    ],
+    "urgency": "Routine \u2014 standard discharge pathway",
+    "medication_review": false,
+    "glucose_monitoring": "Routine HbA1c at next scheduled appointment",
+    "patient_education": "Standard discharge leaflet provided",
+    "outpatient_review": "Routine GP review",
+    "clinical_notes": "Patient assessed as LOW RISK. Proceed with standard discharge.",
+    "model_version": "lr_classweight_w7",
+    "model_sha256": "e56f1ab7964b2d8baf8be69e8e5ec9877a0bf36ba7f1fa0a00a2d1f9d671889c",
+    "threshold_used": 0.5143,
+    "tau_high_recall": 0.6037,
+    "tau_best_f1": 0.5143,
+    "patient_index": 4
+  }
+]

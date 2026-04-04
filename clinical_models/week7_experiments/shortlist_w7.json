@@ -1,0 +1,41 @@
+{
+  "shortlisted_models": [
+    "lr_classweight_w7",
+    "xgb_scaled_w7"
+  ],
+  "selection_criterion": "PR_AUC >= 0.25, top 3 retained (fallback: top 2)",
+  "used_fallback": true,
+  "topk_jaccard": 10,
+  "jaccard_matrix": {
+    "LR (class_weight=balanced)": {
+      "LR (class_weight=balanced)": 1.0,
+      "LR (SMOTENC)": 0.0,
+      "Random Forest (balanced)": 0.0,
+      "XGBoost (scale_pos_weight)": 0.0
+    },
+    "LR (SMOTENC)": {
+      "LR (class_weight=balanced)": 0.0,
+      "LR (SMOTENC)": 1.0,
+      "Random Forest (balanced)": 0.0526,
+      "XGBoost (scale_pos_weight)": 0.0526
+    },
+    "Random Forest (balanced)": {
+      "LR (class_weight=balanced)": 0.0,
+      "LR (SMOTENC)": 0.0526,
+      "Random Forest (balanced)": 1.0,
+      "XGBoost (scale_pos_weight)": 0.0526
+    },
+    "XGBoost (scale_pos_weight)": {
+      "LR (class_weight=balanced)": 0.0,
+      "LR (SMOTENC)": 0.0526,
+      "Random Forest (balanced)": 0.0526,
+      "XGBoost (scale_pos_weight)": 1.0
+    }
+  },
+  "model_pr_aucs": {
+    "lr_classweight_w7": 0.1863,
+    "xgb_scaled_w7": 0.1852,
+    "rf_balanced_w7": 0.1807,
+    "lr_smotenc_w7": 0.1617
+  }
+}

@@ -2,22 +2,16 @@ import pandas as pd
 import numpy as np
 import warnings
 
-# These are the ONLY features the Weeks 4/5 pipeline was trained on.
-# Do NOT add target-adjacent columns (e.g. discharge_disposition_id=11
-# means the patient died — a direct proxy for non-readmission).
-FEATURE_COLS = [
-    'time_in_hospital', 'num_lab_procedures', 'num_procedures',
-    'num_medications', 'number_outpatient', 'number_emergency',
-    'number_inpatient', 'number_diagnoses'
-]
+# The pipeline dictates the expected features.
+# Do NOT hard-code to 8 since the final Week 10 model takes 43 features.
 
 # Columns that would constitute target leakage if present in the input
 _LEAKY_COLUMNS = ['readmitted', 'readmitted_binary', 'label', 'target']
 
-def predict_risk(df, pipeline, threshold_high=0.7, threshold_medium=0.4):
+def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
     df_pred = df.copy()
 
-    # ── Leakage guard 1: strip target column if uploaded with the data ────────
+    # Strip target column if uploaded with the data
     leaky_found = [c for c in _LEAKY_COLUMNS if c in df_pred.columns]
     if leaky_found:
         warnings.warn(
@@ -28,54 +22,39 @@ def predict_risk(df, pipeline, threshold_high=0.7, threshold_medium=0.4):
         )
         df_pred = df_pred.drop(columns=leaky_found)
 
-    # ── Leakage guard 2: require ALL expected features ─────────────────────────
-    # Predicting with a partial feature set would silently pass wrong-shape data
-    # to the scaler, producing unreliable probabilities.
-    missing_cols = [c for c in FEATURE_COLS if c not in df.columns]
-    valid_cols   = [c for c in FEATURE_COLS if c in df.columns]
+    # Require ALL expected features
+    try:
+        expected_cols = list(pipeline.feature_names_in_)
+    except AttributeError:
+        raise RuntimeError("Pipeline must expose feature_names_in_. Ensure the model is fitted.")
 
-    if not valid_cols:
-        # No matching features at all
-        raise ValueError(
-            f"REQUIRED FEATURES MISSING: None of the expected columns {FEATURE_COLS} "
-            "were found in the uploaded CSV. Pipeline cannot generate predictions."
-        )
+    missing_cols = [c for c in expected_cols if c not in df_pred.columns]
+
+    if len(missing_cols) == len(expected_cols):
+        raise ValueError("REQUIRED FEATURES MISSING: None of the expected columns were found in the uploaded CSV.")
     elif missing_cols:
-        # Partial feature set — still warn, but attempt prediction
         warnings.warn(
             f"Missing features for prediction: {missing_cols}. "
-            "Predictions may be unreliable. Ensure the uploaded CSV contains all "
-            "required columns.",
-            UserWarning, stacklevel=2
+            "Predictions may be unreliable if imputed.", UserWarning, stacklevel=2
         )
-        try:
-            # Pipeline requires all 8 training features; predict on the full expected set.
-            probs = pipeline.predict_proba(df[FEATURE_COLS])[:, 1]
-            df_pred['risk_probability'] = probs
-        except Exception as e:
-            raise RuntimeError(
-                f"Prediction failed with missing columns {missing_cols}. "
-                f"Error: {str(e)}. Please ensure your CSV contains all 8 required features."
-            ) from e
-    else:
-        # All features present — clean prediction path
-        try:
-            probs = pipeline.predict_proba(df[FEATURE_COLS])[:, 1]
-            df_pred['risk_probability'] = probs
-        except Exception as e:
-            raise RuntimeError(
-                f"predict_proba failed: {type(e).__name__}: {e}. "
-                f"This is often due to a stale cache or version mismatch. "
-                f"Click 'Clear Model Cache' in the sidebar and re-run analysis."
-            ) from e
+        # Attempt to use the existing columns; let sklearn handle/fail imputation if needed
+        # But we must pass exactly expected_cols
+        pass
 
-    # ── Risk band assignment ──────────────────────────────────────────────────
+    try:
+        # Pipeline requires all expected training features
+        probs = pipeline.predict_proba(df_pred[expected_cols])[:, 1]
+        df_pred['risk_probability'] = probs
+    except KeyError as e:
+        raise RuntimeError(f"Prediction failed with missing columns. Error: {str(e)}") from e
+
+    # Risk band assignment
     conditions = [
         (df_pred['risk_probability'] >= threshold_high),
         (df_pred['risk_probability'] >= threshold_medium) & (df_pred['risk_probability'] < threshold_high),
         (df_pred['risk_probability'] < threshold_medium)
     ]
-    choices = ['High', 'Medium', 'Low']
+    choices = ['High', 'Moderate', 'Low']
     df_pred['risk_band'] = np.select(conditions, choices, default='Low')
 
     return df_pred

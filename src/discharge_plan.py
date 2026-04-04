@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 def _band(risk_score: float) -> str:
-    if risk_score > 0.30:
+    from src.week6_risk import THRESHOLD_HR, THRESHOLD_F1
+    if risk_score >= THRESHOLD_HR:
         return "HIGH"
-    if risk_score > 0.15:
+    if risk_score >= THRESHOLD_F1:
         return "MODERATE"
     return "LOW"
 
-# -- Public entry point -------------------------------------------------------
+# Public entry point
 
 def generate_discharge_plan(
     patient_row: dict,
@@ -146,6 +147,21 @@ def generate_discharge_plan(
             "\n> **Glucose alert:** Your blood sugar was high during your stay. "
             "Check it at home every day and record the numbers."
         )
+        
+    # Clinical Recommendations (Week 9 Robustness)
+    rec_md = ""
+    if band == "HIGH":
+        rec_md = (
+            "- **Medication Review:** Required review of all active prescriptions.\n"
+            "- **Glucose Monitoring:** Daily glucose monitoring required.\n"
+        )
+    elif band == "MODERATE":
+        rec_md = (
+            "- **Patient Education:** Prioritize medication adherence and diet counseling.\n"
+            "- **Outpatient Referral:** Endocrine or diabetes specialist referral recommended.\n"
+        )
+    else:
+        rec_md = "- **Standard Pathway:** No additional interventions needed.\n"
 
     # When to return
     return_signs = [
@@ -216,9 +232,15 @@ def generate_discharge_plan(
 
 ---
 
+### Core Recommendations
+
+{rec_md}
+
+---
+
 *This plan is here to help you look after yourself at home. If you are unsure about anything, please ask your care team.*"""
 
-# ── Top-feature extraction helpers (unchanged) ────────────────────────────────
+# Top-feature extraction helpers
 
 def get_lr_top_features(pipeline, patient_df, feature_names: list[str], topk: int = 5) -> list[str]:
     """
@@ -263,7 +285,7 @@ def get_xgb_top_features(pipeline, patient_df, feature_names: list[str], topk: i
     except Exception:
         return feature_names[:topk]
 
-# ── Patient-facing advice builders ───────────────────────────────────────────
+# Patient-facing advice builders
 
 # Maps feature names → plain-English diet tips
 _DIET_TIPS: dict[str, str] = {
@@ -397,7 +419,7 @@ def _return_to_hospital_advice(band: str, inpatient: int) -> list[str]:
         follow_up.insert(0, "You feel unwell for more than 24 hours — do not wait.")
     return urgent, follow_up
 
-# ── PDF renderer ─────────────────────────────────────────────────────────────
+# PDF renderer
 
 class _PatientLetterPDF:
     """Thin wrapper — builds a patient discharge letter using fpdf."""
@@ -514,7 +536,7 @@ class _PatientLetterPDF:
             self._GREEN
         )
 
-        # ── Patient greeting ──────────────────────────────────────────────
+        # Patient greeting
         pdf.set_font("Arial", "", 11)
         pdf.set_text_color(*self._SLATE)
         pdf.multi_cell(0, 7,
@@ -525,7 +547,7 @@ class _PatientLetterPDF:
         )
         pdf.ln(4)
 
-        # ── Risk summary bar ──────────────────────────────────────────────
+        # Risk summary bar
         self._section_title("YOUR HEALTH TODAY", band_colour)
         band_text = {
             "HIGH":     "Your readmission risk is HIGH. Please follow all advice below closely "
@@ -579,7 +601,7 @@ class _PatientLetterPDF:
             pdf.cell(0, 6, plain_label, ln=True)
         pdf.ln(5)
 
-        # ── Diet ─────────────────────────────────────────────────────────
+        # Diet
         self._section_title("WHAT TO EAT & DRINK", self._GREEN)
         self._body(
             "A healthy diet is one of the most powerful tools for managing diabetes "
@@ -607,7 +629,7 @@ class _PatientLetterPDF:
         ))
         pdf.ln(12)
 
-        # ── Exercise ─────────────────────────────────────────────────────
+        # Exercise
         self._section_title("HOW TO STAY ACTIVE", self._BLUE)
         self._body(
             "Regular movement helps control blood sugar and improves your heart health. "
@@ -620,7 +642,7 @@ class _PatientLetterPDF:
             "exercise routine. Stop immediately if you feel chest pain, dizziness, or very short of breath."
         )
 
-        # ── Medication reminders ──────────────────────────────────────────
+        # Medication reminders
         change  = str(patient_row.get("change",  "No")).lower()
         insulin = str(patient_row.get("insulin", "No")).lower()
         if change in ("ch", "yes", "1") or insulin in ("up", "down"):
@@ -646,7 +668,7 @@ class _PatientLetterPDF:
             )
             self._bullet(med_lines, colour=self._SLATE)
 
-        # ── When to return ────────────────────────────────────────────────
+        # When to return
         urgent_signs, followup_signs = _return_to_hospital_advice(band, inpatient)
 
         self._section_title("CALL 999 / GO TO A&E IMMEDIATELY IF YOU HAVE:", self._RED)
@@ -655,7 +677,7 @@ class _PatientLetterPDF:
         self._section_title("CONTACT YOUR GP OR NURSE IF:", self._ORANGE)
         self._bullet(followup_signs, colour=self._SLATE)
 
-        # ── Next appointment reminder ──────────────────────────────────────
+        # Next appointment reminder
         self._section_title("YOUR NEXT APPOINTMENT", self._BLUE)
         if band == "HIGH" or inpatient >= 2:
             appt_msg = (
@@ -674,7 +696,7 @@ class _PatientLetterPDF:
             )
         self._body(appt_msg)
 
-        # ── Closing ──────────────────────────────────────────────────────
+        # Closing
         pdf.ln(4)
         pdf.set_font("Arial", "I", 9)
         pdf.set_text_color(*self._GREY)

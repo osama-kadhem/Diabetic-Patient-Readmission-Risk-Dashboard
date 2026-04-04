@@ -19,60 +19,59 @@ from src.week6_risk import (
 )
 from src.discharge_plan import generate_discharge_plan, generate_patient_discharge_pdf
 
-@st.cache_data
-def get_recommended_stable_pair():
-    """Loads stability artifacts from the consolidated research location."""
-    try:
-        df_stab = pd.read_csv("clinical_models/research_week_4_5/stability_metrics_w4_5.csv")
-        if not df_stab.empty:
-            mapping = {
-                "lr_none": "baseline_v1",
-                "lr_classweight": "classweight_v1",
-                "lr_ros": "ros_v1"
-            }
-            top_row = df_stab.iloc[0]
-            m1 = mapping.get(top_row['model_a'], "baseline_v1")
-            m2 = mapping.get(top_row['model_b'], "classweight_v1")
-            return m1, m2, top_row['jaccard_top10']
-    except Exception:
-        pass
-    return "baseline_v1", "classweight_v1", None
 
 @st.cache_data
 def get_local_explanation(pipeline_hash, _pipeline, patient_row):
-    """Calculates linear feature contributions for a patient.
-
-    Only works for the 8-feature week-4/5 sklearn Pipelines (scaler -> model).
-    The W6 pipeline uses a ColumnTransformer and a different feature set,
-    so it is intentionally excluded here.
-    """
-    feature_cols = [
-        'time_in_hospital', 'num_lab_procedures', 'num_procedures',
-        'num_medications', 'number_outpatient', 'number_emergency',
-        'number_inpatient', 'number_diagnoses'
-    ]
-
-    # Guard 1: check all required feature columns exist in this patient row
-    missing = [c for c in feature_cols if c not in patient_row.index]
-    if missing:
-        return pd.DataFrame({'Error': [f"Missing feature columns: {missing}"]})
-
-    # Guard 2: the pipeline must have a bare 'scaler' step (week-4/5 only).
-    # The W6 pipeline uses a preprocessor ColumnTransformer - skip it here.
-    if 'scaler' not in _pipeline.named_steps:
-        return pd.DataFrame({'Error': ["Pipeline does not expose a 'scaler' step - explanation unavailable for this model version."]})
-
+    """Calculates linear feature contributions or tree importances for a patient."""
     try:
-        X        = patient_row[feature_cols].values.reshape(1, -1)
-        scaler   = _pipeline.named_steps['scaler']
-        X_scaled = scaler.transform(X)
+        try:
+            expected_cols = list(_pipeline.feature_names_in_)
+        except AttributeError:
+            expected_cols = [
+                'time_in_hospital', 'num_lab_procedures', 'num_procedures',
+                'num_medications', 'number_outpatient', 'number_emergency',
+                'number_inpatient', 'number_diagnoses'
+            ]
+            
+        missing = [c for c in expected_cols if c not in patient_row.index]
+        if missing:
+            return pd.DataFrame({'Error': [f"Missing feature columns: {missing[:3]}..."]})
+            
+        # The final Week 10 pipeline uses the step name 'preprocess' (ColumnTransformer).
+        # Earlier week-4/5 pipelines used 'scaler' or 'preprocessor'.
+        preprocessor = (
+            _pipeline.named_steps.get('preprocess') or
+            _pipeline.named_steps.get('preprocessor') or
+            _pipeline.named_steps.get('scaler')
+        )
+        if preprocessor is None:
+            return pd.DataFrame({'Error': ["Pipeline does not expose a preprocessing step."]})
 
-        model   = _pipeline.named_steps.get('model') or _pipeline.named_steps.get('classifier')
+        model = _pipeline.named_steps.get('classifier') or _pipeline.named_steps.get('model')
         if model is None:
             return pd.DataFrame({'Error': ["No 'model' or 'classifier' step found in pipeline."]})
 
-        weights       = model.coef_[0]
-        contributions = X_scaled[0] * weights
+        X = patient_row[expected_cols].to_frame().T
+        X_scaled = preprocessor.transform(X)
+        if hasattr(X_scaled, 'toarray'):
+            X_scaled = X_scaled.toarray()
+
+        if hasattr(model, 'coef_'):
+            weights = model.coef_[0]
+            contributions = X_scaled[0] * weights
+        elif hasattr(model, 'feature_importances_'):
+            weights = model.feature_importances_
+            contributions = X_scaled[0] * weights
+        else:
+            return pd.DataFrame({'Error': ["Model object has neither coef_ nor feature_importances_."]})
+
+        try:
+            out_names = preprocessor.get_feature_names_out()
+        except Exception:
+            out_names = expected_cols
+
+        if len(contributions) != len(out_names):
+            out_names = [f"Feature {i}" for i in range(len(contributions))]
 
         name_map = {
             'Time In Hospital':   'Days in Hospital',
@@ -85,12 +84,21 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
             'Number Diagnoses':   'Comorbidity Count',
         }
 
-        df_exp = pd.DataFrame({
-            'Feature':      [name_map.get(c.replace('_', ' ').title(), c) for c in feature_cols],
-            'Contribution': contributions,
-        }).sort_values(by='Contribution', ascending=False)
+        # Format column names for display
+        feature_labels = [
+            name_map.get(
+                str(c).split('__')[-1].replace('_', ' ').title(), 
+                str(c).split('__')[-1].replace('_', ' ').title()
+            ) for c in out_names
+        ]
 
-        return df_exp
+        df_exp = pd.DataFrame({
+            'Feature': feature_labels,
+            'Contribution': contributions,
+        }).sort_values(by='Contribution', key=abs, ascending=False)
+        
+        # Return top 10 impactful features for UI clarity
+        return df_exp.head(10)
 
     except Exception as e:
         return pd.DataFrame({'Error': [str(e)]})
@@ -186,7 +194,7 @@ st.markdown("""
     }
     
     .risk-high { background-color: #dc2626; color: #ffffff; border: 1px solid #dc2626; }
-    .risk-medium { background-color: #d97706; color: #ffffff; border: 1px solid #d97706; }
+    .risk-moderate { background-color: #d97706; color: #ffffff; border: 1px solid #d97706; }
     .risk-low { background-color: #059669; color: #ffffff; border: 1px solid #059669; }
     
     /* Tabs */
@@ -209,21 +217,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Model Registry — only 8-feature week-4/5 sklearn Pipelines for batch upload.
-# The W6 model (16 features, ColumnTransformer) lives in the Risk Predictor tab.
+# Model Registry — Best 3 models (XGBoost removed: requires unavailable libomp dependency)
 MODEL_REGISTRY = {
-  "baseline_v1":    "clinical_models/baseline_v1.joblib",
-  "classweight_v1": "clinical_models/classweight_v1.joblib",
-  "ros_v1":         "clinical_models/ros_v1.joblib",
-  "smote_v1":       "clinical_models/smote_v1.joblib"
+  "lr_classweight_w7_final": "clinical_models/week10_final/lr_classweight_w7_final.joblib",
+  "lr_classweight_w7":       "clinical_models/week7_experiments/lr_classweight_w7.pkl",
+  "lr_ros_w6":               "clinical_models/week6_candidate/lr_ros_w6.joblib"
 }
 
 # Human-readable model labels for UI
 MODEL_LABELS = {
-  "baseline_v1":    "Standard LR (Baseline)",
-  "classweight_v1": "Class-Weighted LR",
-  "ros_v1":         "Random Over-Sampling",
-  "smote_v1":       "SMOTE"
+  "lr_classweight_w7_final": "Calibrated LR (FINAL - Default)",
+  "lr_classweight_w7":       "LR Class-Weight (Week 7 Raw)",
+  "lr_ros_w6":               "LR ROS (Week 6 Baseline)"
 }
 
 # Bump this constant to force Streamlit to discard any stale cached pipelines.
@@ -242,7 +247,7 @@ if 'selected_patient' not in st.session_state:
 if 'pipeline' not in st.session_state:
     st.session_state.pipeline = None
 if 'model_version' not in st.session_state:
-    st.session_state.model_version = "baseline_v1"
+    st.session_state.model_version = "lr_classweight_w7_final"
 if 'w6_reset_key' not in st.session_state:
     st.session_state.w6_reset_key = 0
 if 'w6_result' not in st.session_state:
@@ -398,6 +403,22 @@ with st.sidebar:
     
     st.markdown("---")
     
+    st.markdown("#### OPERATING MODE")
+    op_mode = st.radio(
+        "Select clinical threshold strategy",
+        ["Best-F1 (Default)", "High-Recall (Screening)"],
+        index=0,
+        help="Best-F1 maximizes overall accuracy. High-Recall flags more patients for review."
+    )
+    if "Screening" in op_mode:
+        st.session_state.op_mode_name = "screening"
+        st.session_state.tau_high = 0.604
+        st.session_state.tau_mid  = 0.514
+    else:
+        st.session_state.op_mode_name = "best_f1"
+        st.session_state.tau_high = 0.604
+        st.session_state.tau_mid  = 0.514
+
     st.markdown("#### CAPACITY")
 
     if st.session_state.uploaded_data is not None:
@@ -436,7 +457,8 @@ with st.sidebar:
                         predictions = predict_risk(
                             data_for_pred,
                             st.session_state.pipeline,
-                            threshold_high=0.7
+                            threshold_high=st.session_state.tau_high,
+                            threshold_medium=st.session_state.tau_mid
                         )
                         st.session_state.predictions = rank_patients(predictions)
                     except Exception as pred_err:
@@ -516,7 +538,16 @@ if st.session_state.uploaded_data is not None:
 
         if st.session_state.predictions is not None:
             df_pred = st.session_state.predictions
-            
+
+            # Warn if the user uploaded the full training dataset (>10k rows),
+            # which causes inflated probabilities due to train-set memorisation.
+            if len(df_pred) > 10_000:
+                st.warning(
+                    f"⚠️ **Training Data Detected ({len(df_pred):,} rows):** You appear to have uploaded the "
+                    "full training dataset. The model has already seen these patients during training, so "
+                    "predicted probabilities will be inflated (e.g. 98%). "
+                    "**Upload a fresh prospective cohort (held-out test set or real patients) for valid predictions.**"
+                )
             # Summary Metrics Container
             with st.container(border=True):
                 col1, col2, col3, col4 = st.columns(4)
@@ -545,17 +576,17 @@ if st.session_state.uploaded_data is not None:
                 with st.container(border=True):
                     st.markdown("#### Risk Distribution")
                     
-                    # ── Threshold reference lines at 0.4 (medium) and 0.7 (high) ──
+                    # ── Threshold reference lines (dynamic based on toggle) ──
                     thresh_df = pd.DataFrame([
-                        {'threshold': 0.4, 'label': 'Medium threshold'},
-                        {'threshold': 0.7, 'label': 'High threshold'},
+                        {'threshold': st.session_state.tau_mid, 'label': 'Moderate threshold'},
+                        {'threshold': st.session_state.tau_high, 'label': 'High threshold'},
                     ])
                     thresh_lines = alt.Chart(thresh_df).mark_rule(
                         strokeDash=[5, 3], strokeWidth=1.5
                     ).encode(
                         x=alt.X('threshold:Q'),
                         color=alt.Color('label:N', scale=alt.Scale(
-                            domain=['Medium threshold', 'High threshold'],
+                            domain=['Moderate threshold', 'High threshold'],
                             range=['#d97706', '#dc2626']
                         ), legend=alt.Legend(title='Thresholds'))
                     )
@@ -572,7 +603,7 @@ if st.session_state.uploaded_data is not None:
                         color=alt.Color(
                             'risk_band:N',
                             scale=alt.Scale(
-                                domain=['High', 'Medium', 'Low'],
+                                domain=['High', 'Moderate', 'Low'],
                                 range=['#dc2626', '#d97706', '#059669']
                             ),
                             legend=alt.Legend(title='Risk Band')
@@ -590,8 +621,8 @@ if st.session_state.uploaded_data is not None:
                     st.altair_chart(risk_chart, use_container_width=True)
                     
                     def get_band_color(prob):
-                        if prob >= 0.7: return "#dc2626"
-                        if prob >= 0.4: return "#d97706"
+                        if prob >= st.session_state.tau_high: return "#dc2626"
+                        if prob >= st.session_state.tau_mid: return "#d97706"
                         return "#059669"
 
                     avg_p = df_pred['risk_probability'].mean()
@@ -621,7 +652,7 @@ if st.session_state.uploaded_data is not None:
                     donut = alt.Chart(band_data).mark_arc(innerRadius=50).encode(
                         theta=alt.Theta(field="Count", type="quantitative"),
                         color=alt.Color(field="Band", type="nominal", scale=alt.Scale(
-                            domain=['High', 'Medium', 'Low'],
+                            domain=['High', 'Moderate', 'Low'],
                             range=['#dc2626', '#d97706', '#059669']
                         )),
                         tooltip=['Band', 'Count']
@@ -629,7 +660,7 @@ if st.session_state.uploaded_data is not None:
                     
                     st.altair_chart(donut, use_container_width=True)
                     
-                    for band in ['High', 'Medium', 'Low']:
+                    for band in ['High', 'Moderate', 'Low']:
                         if band in band_counts.index:
                             count = band_counts[band]
                             pct = count / len(df_pred) * 100
@@ -767,7 +798,7 @@ if st.session_state.uploaded_data is not None:
                 pipeline_hash = joblib.hash(active_pipe)
                 exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
 
-            # --- Hero Section ---
+            # Hero Section
             with st.container(border=True):
                 col1, col2, col3, col4 = st.columns([1.5, 1, 2, 1.5])
                 
@@ -809,7 +840,7 @@ if st.session_state.uploaded_data is not None:
                         type="primary"
                     )
 
-                # --- Clinical Indicators ---
+                # Clinical Indicators
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -897,7 +928,7 @@ if st.session_state.uploaded_data is not None:
             with st.container(border=True):
                 st.markdown("#### CASE HISTORY")
 
-                # 1. New Intervention Form
+                # New Intervention Form
                 with st.expander("LOG NOTES", expanded=True):
 
                     with st.form(key=f'intervention_form_{patient_id}'):
@@ -939,7 +970,7 @@ if st.session_state.uploaded_data is not None:
                 else:
                     st.info("No prior interventions recorded for this patient.")
 
-            # ── Discharge Plan ─────────────────────────────────────────────
+            # Discharge Plan
             st.markdown("### 📋 DISCHARGE PLAN")
             with st.container(border=True):
                 st.caption(
@@ -1025,7 +1056,7 @@ if st.session_state.uploaded_data is not None:
         else:
             st.info("Ready: Select a patient from the 'PRIORITIZATION QUEUE' tab to view analysis.")
 
-# ── Individual Risk Predictor ────────────────────────────────────────────────
+# Individual Risk Predictor
 with tab4:
     st.markdown("### INDIVIDUAL RISK PREDICTOR")
 
@@ -1042,7 +1073,7 @@ with tab4:
         if w6_pipeline is None:
             st.warning(
                 "The readmission risk model could not be loaded. "
-                "Ensure `clinical_models/lr_ros_w6.joblib` is present and intact."
+                "Ensure `clinical_models/week10_final/lr_classweight_w7_final.joblib` is present and intact."
             )
         else:
             # Compact Header Row
@@ -1055,7 +1086,7 @@ with tab4:
                     st.session_state.w6_result = None
                     st.rerun()
 
-            # ── Dynamic input form ────────────────────────────────────────────
+            # Dynamic input form
             with st.container(border=True):
                 with st.form(key="w6_patient_form", border=False):
                     patient_df = render_w6_form(manifest, reset_key=st.session_state.w6_reset_key)
@@ -1070,9 +1101,26 @@ with tab4:
                         import warnings
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", UserWarning)
-                            prob = float(w6_pipeline.predict_proba(patient_df)[0, 1])
-                        band, band_color = compute_risk_band(prob)
-                        interpretation   = interpret_risk(prob, band)
+                            
+                            # Auto-pad missing 28 features for Week 10 final model
+                            try:
+                                expected_cols = list(w6_pipeline.feature_names_in_)
+                                for col in expected_cols:
+                                    if col not in patient_df.columns:
+                                        if col == 'num_lab_procedures': patient_df[col] = 44.0
+                                        elif col == 'num_procedures': patient_df[col] = 1.0
+                                        elif col == 'number_diagnoses': patient_df[col] = 9.0
+                                        elif col.startswith('diag_'): patient_df[col] = "250.0"
+                                        elif col in ['race', 'gender']: patient_df[col] = "Unknown"
+                                        elif col == 'admission_source_id': patient_df[col] = "7"
+                                        else: patient_df[col] = "No"
+                                patient_df_ordered = patient_df[expected_cols]
+                            except AttributeError:
+                                patient_df_ordered = patient_df
+                                
+                            prob = float(w6_pipeline.predict_proba(patient_df_ordered)[0, 1])
+                        band, band_color = compute_risk_band(prob, mode=st.session_state.get('op_mode_name', 'best_f1'))
+                        interpretation   = interpret_risk(prob, band, mode=st.session_state.get('op_mode_name', 'best_f1'))
                         st.session_state.w6_result = {
                             "patient_df": patient_df,
                             "prob": prob,
@@ -1084,7 +1132,7 @@ with tab4:
                         st.error(f"⚠️ Prediction failed: {exc}")
                         st.session_state.w6_result = None
 
-            # ── Results display ───────────────────────────────────────────────
+            # Results display
             if st.session_state.w6_result is not None:
                 res        = st.session_state.w6_result
                 prob       = res["prob"]
@@ -1116,7 +1164,7 @@ with tab4:
                     st.markdown("#### CLINICAL INTERPRETATION")
                     st.info(interp)
 
-                # ── Patient Input Summary card ────────────────────────────
+                # Patient Input Summary card
                 with st.container(border=True):
                     st.markdown("#### PATIENT INPUT SUMMARY")
                     st.caption("Selected values used for this prediction:")
@@ -1133,7 +1181,7 @@ with tab4:
                     with sc2:
                         st.dataframe(summary_df.iloc[half:], use_container_width=True, hide_index=True)
 
-        # ── Academic disclaimer (always visible) ────────────────────────
+        # Academic disclaimer (always visible)
         st.markdown("---")
         st.info(
             "**Academic Use Only** — This tool is a decision-support prototype "

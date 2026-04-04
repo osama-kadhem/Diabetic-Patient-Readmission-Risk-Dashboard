@@ -72,7 +72,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     
     pdf.ln(10)
     
-    # --- CLINICAL METRICS ---
+    # Clinical Metrics
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 10, 'Clinical Snapshot', 'B', 1, 'L')
     pdf.ln(2)
@@ -94,7 +94,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             
     pdf.ln(10)
     
-    # --- RISK DRIVERS ---
+    # Risk Drivers
     if explanation_df is not None and not explanation_df.empty and 'Contribution' in explanation_df.columns:
         pdf.set_font('Arial', 'B', 12)
         pdf.cell(0, 10, 'Interpretability: Key Risk Drivers', 'B', 1, 'L')
@@ -150,7 +150,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
         pdf.set_text_color(0, 0, 0)
         pdf.ln(6)
 
-    # --- CASE HISTORY ---
+    # Case History
     if history_df is not None and not history_df.empty:
         pdf.set_font('Arial', 'B', 12)
         pdf.set_text_color(0, 0, 0)

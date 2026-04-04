@@ -1,9 +1,0 @@
-feature,importance
-number_diagnoses,0.08776308266873833
-time_in_hospital,0.0819448834712815
-num_procedures,0.05600497730626205
-number_inpatient,0.04365060487746758
-num_medications,0.04286878570341586
-num_lab_procedures,0.0027861853045183156
-number_outpatient,0.00010504288143861258
-number_emergency,1.4666184633631995e-18

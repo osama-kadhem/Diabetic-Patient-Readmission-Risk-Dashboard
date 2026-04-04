@@ -15,11 +15,13 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-MANIFEST_PATH = "clinical_models/feature_manifest.json"
+MANIFEST_PATH = "clinical_models/week10_final/feature_manifest.json"
 
-# thresholds for risk banding
-THRESHOLD_HIGH   = 0.40
-THRESHOLD_MEDIUM = 0.20
+# Week 8 calibrated operating thresholds (Platt-scaled lr_classweight_w7)
+# Best-F1 mode (default):      τ = 0.514
+# High-recall / screening mode: τ = 0.604
+THRESHOLD_F1     = 0.514
+THRESHOLD_HR     = 0.604
 
 # Human-readable labels for admission_type_id (UCI dataset coding)
 ADMISSION_TYPE_LABELS: dict[str, str] = {
@@ -122,16 +124,32 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
 
     inputs: dict[str, object] = {}
 
-    # Organize features into three logical groups
-    # Group 1: Core Metrics (Numbers)
-    # Group 2: Medications (Categorical)
-    # Group 3: Admission/Other (Categorical)
-    
+    # Reorder numeric features based on Week 9 robustness findings
+    # number_inpatient is highly sensitive (+0.036 delta), make it prominent
+    primary_num = [f for f in num_order if f == "number_inpatient"]
+    # lab procedures and outpatient are insensitive (+0.0003 delta), make them secondary
+    secondary_num = [f for f in num_order if f in ["num_lab_procedures", "number_outpatient"]]
+    # The rest are in the middle
+    middle_num = [f for f in num_order if f not in primary_num and f not in secondary_num]
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown("**📊 Vitals & Labs**")
-        for feat in num_order:
+        st.markdown("**🚨 Primary Risk Driver**")
+        for feat in primary_num:
+            spec  = features[feat]
+            step  = float(spec.get("step", 1))
+            inputs[feat] = st.slider(
+                label     = spec["description"],
+                min_value = int(spec["min"]),
+                max_value = int(spec["max"]),
+                value     = int(spec["median"]),
+                step      = int(step),
+                key       = f"w6_slider_{feat}_{reset_key}",
+            )
+            
+        st.markdown("**📊 Core Metrics**")
+        for feat in middle_num + secondary_num:
             spec  = features[feat]
             step  = float(spec.get("step", 1))
             inputs[feat] = st.slider(
@@ -214,29 +232,44 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
     return pd.DataFrame([{k: inputs[k] for k in ordered_cols}])
 
 
-def compute_risk_band(prob: float) -> tuple[str, str]:
-    """Map a probability to (band_label, css_colour)."""
-    if prob >= THRESHOLD_HIGH:
+def compute_risk_band(prob: float, mode: str = "best_f1") -> tuple[str, str]:
+    """
+    Map a calibrated probability to (band_label, css_colour).
+
+    mode='best_f1' (default)  : τ_high=0.604, τ_mid=0.514
+    mode='screening'          : same bands, but communicates high-recall intent
+    """
+    tau_high = THRESHOLD_HR
+    tau_mid  = THRESHOLD_F1
+    if prob >= tau_high:
         return "High", "#dc2626"
-    if prob >= THRESHOLD_MEDIUM:
-        return "Medium", "#d97706"
+    if prob >= tau_mid:
+        return "Moderate", "#d97706"
     return "Low", "#059669"
 
 
-def interpret_risk(prob: float, band: str) -> str:
-    """Return a plain-English interpretation of the predicted risk."""
+def interpret_risk(prob: float, band: str, mode: str = "best_f1") -> str:
+    """Return a plain-English interpretation of the calibrated risk score."""
     pct = prob * 100
+    mode_note = (
+        "(screening mode — optimised for high recall)"
+        if mode == "screening"
+        else "(best-F1 operating point)"
+    )
     if band == "High":
         return (
-            f"⚠️ This patient has a **higher-than-average** predicted risk of 30-day readmission "
-            f"({pct:.1f}%). Early follow-up and targeted discharge planning are strongly recommended."
+            f"⚠️ This patient has a **higher-than-average** calibrated readmission risk "
+            f"({pct:.1f}%) {mode_note}. "
+            "Early follow-up within **7 days** and targeted discharge planning are strongly recommended."
         )
-    if band == "Medium":
+    if band == "Moderate":
         return (
-            f"🟡 This patient carries a **moderate** predicted risk of 30-day readmission "
-            f"({pct:.1f}%). Routine follow-up with care-coordination review is advised."
+            f"🟡 This patient carries a **moderate** calibrated readmission risk "
+            f"({pct:.1f}%) {mode_note}. "
+            "Follow-up within **14 days** and outpatient care coordination are advised."
         )
     return (
-        f"✅ This patient has a **lower-than-average** predicted risk of 30-day readmission "
-        f"({pct:.1f}%). Standard discharge protocols appear appropriate."
+        f"✅ This patient has a **lower-than-average** calibrated readmission risk "
+        f"({pct:.1f}%) {mode_note}. "
+        "Standard discharge protocols are appropriate."
     )

@@ -1,0 +1,6 @@
+{
+  "version_id": "ros_v1",
+  "label": "Enhanced (ROS)",
+  "strategy": "ros",
+  "seed": 42
+}

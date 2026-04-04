@@ -1,7 +1,0 @@
-model_a,model_b,top10_overlap,jaccard_top10
-baseline_v1,classweight_v1,8,1.0
-baseline_v1,ros_v1,8,1.0
-baseline_v1,smote_v1,8,1.0
-classweight_v1,ros_v1,8,1.0
-classweight_v1,smote_v1,8,1.0
-ros_v1,smote_v1,8,1.0

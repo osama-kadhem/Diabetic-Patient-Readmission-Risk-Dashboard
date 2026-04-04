@@ -1,0 +1,7 @@
+scenario,predicted_risk
+Baseline,0.5484
+Max medications (200),0.7379
+Extreme LOS (45 days),0.6797
+Zero prior admissions,0.5484
+Missing race (Unknown),0.5375
+High lab procedures (120),0.5464
