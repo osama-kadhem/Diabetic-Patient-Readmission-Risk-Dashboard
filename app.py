@@ -123,76 +123,73 @@ st.markdown("""
 <style>
     /* Professional Document Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap');
-    
-    /* Force standard Light Mode variables even if server defaults to dark */
-    :root {
-        --primary-color: #0284c7;
-        --background-color: #f1f5f9;
-        --secondary-background-color: #ffffff;
-        --text-color: #1e293b;
-        --font: 'Public Sans', sans-serif;
+
+    /* ==== FORCE LIGHT THEME: Override ALL Streamlit dark-mode injections ==== */
+
+    /* Main app shell */
+    .stApp,
+    .stApp > header,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stAppViewBlockContainer"],
+    [data-testid="stMainBlockContainer"],
+    [data-testid="stMain"],
+    [data-testid="block-container"],
+    .main .block-container {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
     }
 
-    html, body, [class*="css"] {
+    /* Every chunk of markdown text */
+    .stMarkdown, .stMarkdown p, .stMarkdown span,
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+    .stMarkdown h4, .stMarkdown h5, .stMarkdown li,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] span,
+    [data-testid="stMarkdownContainer"] li {
+        color: #1e293b !important;
         font-family: 'Public Sans', sans-serif !important;
-        color: #1e293b !important;
-        background-color: #f1f5f9;
-    }
-    
-    .stApp {
-        background-color: #f1f5f9;
     }
 
-    /* Target specific markdown elements to ensure visibility */
-    .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown li {
-        color: #1e293b !important;
+    /* Headings */
+    h1, h2, h3, h4 {
+        font-weight: 600 !important;
+        color: #0f172a !important;
+        letter-spacing: -0.01em;
+        font-family: 'Public Sans', sans-serif !important;
     }
-    
-    /* Systematic Container Styling */
-    [data-testid="stVerticalBlockBorderWrapper"] > div > div {
-        background-color: #ffffff;
-        border-radius: 4px !important;
-        border-left: 4px solid #0284c7 !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Sidebar: Control Center */
-    [data-testid="stSidebar"] {
+
+    /* Sidebar */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] > div {
         background-color: #ffffff !important;
         border-right: 1px solid #cbd5e1 !important;
     }
-    
+
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3,
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h4 {
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h4,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span {
         color: #0f172a !important;
     }
 
-    [data-testid="stSidebar"] .stMarkdown h3, 
+    [data-testid="stSidebar"] .stMarkdown h3,
     [data-testid="stSidebar"] .stMarkdown h4 {
         color: #0369a1 !important;
         font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         font-size: 0.85rem !important;
-        border-bottom: 2px solid #f1f5f9;
-        padding-bottom: 5px;
-        margin-bottom: 15px;
     }
 
-    /* Input Fields */
-    .stTextInput input, .stSelectbox select, .stNumberInput input {
+    /* Containers / Cards */
+    [data-testid="stVerticalBlockBorderWrapper"] > div > div {
+        background-color: #ffffff !important;
         border-radius: 4px !important;
-        border: 1px solid #cbd5e1 !important;
+        border-left: 4px solid #0284c7 !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
     }
-    
-    /* Systematic Headers */
-    h1, h2, h3 {
-        font-weight: 600 !important;
-        color: #0f172a !important;
-        letter-spacing: -0.01em;
-    }
-    
+
     /* Metrics */
     [data-testid="stMetricValue"] {
         font-family: 'Public Sans', sans-serif !important;
@@ -200,8 +197,35 @@ st.markdown("""
         font-weight: 600 !important;
         color: #0369a1 !important;
     }
-    
-    /* Badges */
+
+    /* Input Fields */
+    .stTextInput input, .stNumberInput input,
+    [data-testid="textInput"] input {
+        border-radius: 4px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #ffffff !important;
+        color: #1e293b !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #ffffff !important;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 0 1rem;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        font-weight: 600;
+        color: #64748b !important;
+        padding: 10px 20px;
+    }
+
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: #0284c7 !important;
+        border-bottom-color: #0284c7 !important;
+    }
+
+    /* Risk Badges */
     .risk-badge {
         display: inline-flex;
         align-items: center;
@@ -211,28 +235,10 @@ st.markdown("""
         font-size: 0.7rem;
         text-transform: uppercase;
     }
-    
-    .risk-high { background-color: #dc2626; color: #ffffff; border: 1px solid #dc2626; }
-    .risk-moderate { background-color: #d97706; color: #ffffff; border: 1px solid #d97706; }
-    .risk-low { background-color: #059669; color: #ffffff; border: 1px solid #059669; }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #ffffff;
-        border-bottom: 2px solid #e2e8f0;
-        padding: 0 1rem;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        font-weight: 600;
-        color: #64748b;
-        padding: 10px 20px;
-    }
-    
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        color: #0284c7;
-        border-bottom-color: #0284c7;
-    }
+
+    .risk-high     { background-color: #dc2626; color: #ffffff !important; }
+    .risk-moderate { background-color: #d97706; color: #ffffff !important; }
+    .risk-low      { background-color: #059669; color: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
