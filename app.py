@@ -1,4 +1,12 @@
 import streamlit as st
+
+# MUST be first command
+st.set_page_config(
+    page_title="Clinical Dashboard - Readmission Risk",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 import pandas as pd
 import numpy as np
 import pickle
@@ -105,12 +113,9 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
 
 db.init_db()
 
-# Page configuration
-st.set_page_config(
-    page_title="Clinical Dashboard - Readmission Risk",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Page configuration already set at top
+# db.init_db() call moved below imports
+
 
 # Clinical Dashboard Style
 
@@ -119,14 +124,28 @@ st.markdown("""
     /* Professional Document Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap');
     
+    /* Force standard Light Mode variables even if server defaults to dark */
+    :root {
+        --primary-color: #0284c7;
+        --background-color: #f1f5f9;
+        --secondary-background-color: #ffffff;
+        --text-color: #1e293b;
+        --font: 'Public Sans', sans-serif;
+    }
+
     html, body, [class*="css"] {
-        font-family: 'Public Sans', sans-serif;
-        color: #1e293b; /* Slate 800 */
-        background-color: #f1f5f9; /* Slate 100 */
+        font-family: 'Public Sans', sans-serif !important;
+        color: #1e293b !important;
+        background-color: #f1f5f9;
     }
     
     .stApp {
         background-color: #f1f5f9;
+    }
+
+    /* Target specific markdown elements to ensure visibility */
+    .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown li {
+        color: #1e293b !important;
     }
     
     /* Systematic Container Styling */
@@ -176,10 +195,10 @@ st.markdown("""
     
     /* Metrics */
     [data-testid="stMetricValue"] {
-        font-family: 'Public Sans', sans-serif;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #0369a1;
+        font-family: 'Public Sans', sans-serif !important;
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+        color: #0369a1 !important;
     }
     
     /* Badges */
