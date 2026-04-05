@@ -20,7 +20,7 @@ class PatientReport(FPDF):
         self.set_text_color(156, 163, 175)
         self.cell(0, 10, f'Page {self.page_no()} | Confidential Clinical Data', 0, 0, 'C')
 
-def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user_name="SYSTEM"):
+def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user_name="SYSTEM", interaction_alerts=None):
     pdf = PatientReport()
     pdf.add_page()
     
@@ -149,6 +149,36 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
         pdf.line(center_x, start_y, center_x, end_y)
         pdf.set_text_color(0, 0, 0)
         pdf.ln(6)
+
+    # Polypharmacy Safety Check (Data directly passed from UI for 1:1 match)
+    alerts = interaction_alerts or []
+    
+    if alerts:
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 10, 'FDA Polypharmacy Safety Check', 'B', 1, 'L')
+        pdf.ln(4)
+        for alert in alerts:
+            # Set dynamic colour based on risk level
+            if "SEVERE" in alert["level"]:
+                pdf.set_text_color(159, 18, 57)
+            elif "HIGH" in alert["level"]:
+                pdf.set_text_color(220, 38, 38)
+            elif "MODERATE" in alert["level"]:
+                pdf.set_text_color(217, 119, 6)
+            else:
+                pdf.set_text_color(5, 150, 105)
+            
+            # Strip emojis for strict latin-1 PDF compatibility
+            clean_lvl = alert["level"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
+            clean_msg = alert["message"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
+            
+            pdf.set_font('Arial', 'B', 10)
+            pdf.cell(0, 6, clean_lvl, 0, 1, 'L')
+            pdf.set_text_color(51, 65, 85)
+            pdf.set_font('Arial', '', 9)
+            pdf.multi_cell(0, 5, clean_msg)
+            pdf.ln(3)
 
     # Case History
     if history_df is not None and not history_df.empty:

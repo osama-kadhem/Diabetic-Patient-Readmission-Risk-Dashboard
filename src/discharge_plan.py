@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 def _band(risk_score: float) -> str:
-    from src.week6_risk import THRESHOLD_HR, THRESHOLD_F1
+    from src.risk_calculator import THRESHOLD_HR, THRESHOLD_F1
     if risk_score >= THRESHOLD_HR:
         return "HIGH"
     if risk_score >= THRESHOLD_F1:
@@ -15,6 +15,7 @@ def generate_discharge_plan(
     risk_score: float,
     top_features: list[str],
     model_id: str,
+    interaction_alerts: list[dict] = None,
 ) -> str:
     """
     Generate a patient-facing discharge plan in plain English.
@@ -98,9 +99,12 @@ def generate_discharge_plan(
         exercise_intro = "Start very gently -- even a little movement each day helps:"
     exercise_md = "\n".join(f"- {t}" for t in exercise_tips)
 
-    # Medications (only if changed)
+    # Medications
+    alerts = interaction_alerts if interaction_alerts is not None else []
+    has_alert = any(bad in a["level"] for a in alerts for bad in ["RISK", "DDI", "ALERT"])
+    
     med_section = ""
-    if change.lower() in ("ch", "yes", "1") or insulin.lower() in ("up", "down"):
+    if change.lower() in ("ch", "yes", "1") or insulin.lower() in ("up", "down") or has_alert:
         med_lines = [
             "Take **all** your medications exactly as prescribed. "
             "Do not stop any without speaking to your doctor first."
@@ -116,10 +120,17 @@ def generate_discharge_plan(
                 f"Your insulin was {direction}. Monitor your blood sugar at home and write down "
                 "the readings to share at your next appointment."
             )
+        
         med_section = (
             "\n\n### Your Medications\n"
             + "\n".join(f"- {m}" for m in med_lines)
         )
+        
+        if has_alert:
+            med_section += "\n\n> **IMPORTANT SAFETY NOTICE:**\n"
+            for a in alerts:
+                if any(bad in a["level"] for bad in ["RISK", "DDI", "ALERT"]):
+                    med_section += f"> - **{a['level']}**: {a['message']}\n"
 
     # Next appointment
     if band == "HIGH" or inpatient >= 2:
@@ -523,6 +534,7 @@ class _PatientLetterPDF:
         risk_score: float,
         top_features: list[str],
         model_id: str,
+        interaction_alerts: list[dict] = None,
     ) -> "io.BytesIO":
         import io
         pdf = self._pdf
@@ -643,9 +655,12 @@ class _PatientLetterPDF:
         )
 
         # Medication reminders
+        alerts = interaction_alerts if interaction_alerts is not None else []
+        has_alert = any(bad in a["level"] for a in alerts for bad in ["RISK", "DDI", "ALERT"])
+        
         change  = str(patient_row.get("change",  "No")).lower()
         insulin = str(patient_row.get("insulin", "No")).lower()
-        if change in ("ch", "yes", "1") or insulin in ("up", "down"):
+        if change in ("ch", "yes", "1") or insulin in ("up", "down") or has_alert:
             self._section_title("YOUR MEDICATIONS", self._ORANGE)
             med_lines = [
                 "Take all medications exactly as prescribed — do not stop or change doses without "
@@ -667,6 +682,27 @@ class _PatientLetterPDF:
                 "especially if you visit another doctor or go to an emergency department."
             )
             self._bullet(med_lines, colour=self._SLATE)
+            
+            if has_alert:
+                self._pdf.ln(2)
+                self._pdf.set_font("Arial", "B", 10)
+                self._pdf.set_text_color(*self._RED)
+                self._pdf.set_x(15)
+                self._pdf.cell(0, 6, "IMPORTANT SAFETY NOTICE:", ln=True)
+                
+                for a in alerts:
+                    if any(bad in a["level"] for bad in ["RISK", "DDI", "ALERT"]):
+                        clean_lvl = a["level"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
+                        clean_msg = a["message"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
+                        self._pdf.set_font("Arial", "B", 10)
+                        self._pdf.set_text_color(*self._RED)
+                        self._pdf.set_x(18)
+                        self._pdf.cell(0, 5, self._s(clean_lvl), ln=True)
+                        self._pdf.set_font("Arial", "", 9)
+                        self._pdf.set_text_color(*self._SLATE)
+                        self._pdf.set_x(18)
+                        self._pdf.multi_cell(0, 5, self._s(clean_msg))
+                        self._pdf.ln(2)
 
         # When to return
         urgent_signs, followup_signs = _return_to_hospital_advice(band, inpatient)
@@ -722,6 +758,7 @@ def generate_patient_discharge_pdf(
     risk_score: float,
     top_features: list[str],
     model_id: str,
+    interaction_alerts: list[dict] = None,
 ) -> "io.BytesIO":
     """
     Generate a patient-facing discharge letter as a PDF.
@@ -754,5 +791,6 @@ def generate_patient_discharge_pdf(
         risk_score   = risk_score,
         top_features = top_features,
         model_id     = model_id,
+        interaction_alerts = interaction_alerts,
     )
 

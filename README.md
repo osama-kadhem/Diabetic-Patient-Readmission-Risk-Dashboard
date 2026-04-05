@@ -11,6 +11,7 @@ Powered by a calibrated, class-weighted Logistic Regression engine, the dashboar
 
 - **Intelligent Risk Stratification:** Automatically groups patient encounters into High, Moderate, and Low risk bands based on meticulously optimized clinical thresholds.
 - **Deep Interpretability:** See the "why" behind every prediction. The Patient Dossier intuitively surfaces the top ten features driving a patient's risk score, replacing algorithmic black-boxes with complete clinical transparency.
+- **Live Polypharmacy Safety Checks:** Seamlessly integrated with the U.S. Government's OpenFDA clinical API. The system dynamically queries real-time federal databases to detect severe drug-drug interactions (DDI) directly from the patient's active medication list, appending critical safety alerts to the clinician's dossier.
 - **Dynamic What-If Analysis:** Interactively model discharge scenarios. Adjust medications and prior admission histories to instantly witness the projected impact on patient risk in real time.
 - **Tiered Discharge Planning:** Automatically generate and export high-fidelity, secure PDF discharge dossiers outlining targeted intervention strategies for at-risk patients.
 - **Frictionless Workflow:** Seamlessly upload standard HL7/CSV encounter extracts, define your daily intervention capacity, and let the system intelligently prioritize your team's follow-up queue.
@@ -102,9 +103,10 @@ final-project-demo/
     ├── data_validation.py  # Incoming data schema assurance & verification
     ├── db.py               # Secure SQLite audit and prediction logging backend
     ├── discharge_plan.py   # Secure, exportable PDF intervention generation
+    ├── interactions.py     # Live OpenFDA API DDI engine & safety heuristics
     ├── predict.py          # Core inference mapping and risk ranking engine
     ├── reports.py          # Supplementary patient dossier formatting integrations
-    └── week6_risk.py       # What-If simulation forms & engine constraint mapping
+    └── risk_calculator.py  # What-If simulation forms & engine constraint mapping
 ```
 
 ---

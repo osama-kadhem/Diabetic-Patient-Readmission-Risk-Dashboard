@@ -12,13 +12,13 @@ from src.data_validation import validate_csv
 from src.predict import predict_risk, rank_patients
 from src.reports import generate_patient_pdf
 import src.db as db
-from src.week6_risk import (
+from src.risk_calculator import (
     load_w6_manifest, load_w6_model,
     render_w6_form, compute_risk_band, interpret_risk,
     MANIFEST_PATH, _patch_lr_compat
 )
 from src.discharge_plan import generate_discharge_plan, generate_patient_discharge_pdf
-
+from src.interactions import check_drug_interactions
 
 @st.cache_data
 def get_local_explanation(pipeline_hash, _pipeline, patient_row):
@@ -798,6 +798,10 @@ if st.session_state.uploaded_data is not None:
                 pipeline_hash = joblib.hash(active_pipe)
                 exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
 
+            # Calculate API Polypharmacy alerts early to pass into PDF generators 
+            patient_meds = patient_row.to_dict()
+            interaction_alerts = check_drug_interactions(patient_meds)
+
             # Hero Section
             with st.container(border=True):
                 col1, col2, col3, col4 = st.columns([1.5, 1, 2, 1.5])
@@ -829,7 +833,8 @@ if st.session_state.uploaded_data is not None:
                         patient_row, 
                         explanation_df=exp_df, 
                         history_df=patient_history,
-                        user_name=st.session_state.user
+                        user_name=st.session_state.user,
+                        interaction_alerts=interaction_alerts
                     )
                     st.download_button(
                         label="📄 EXPORT PDF",
@@ -924,6 +929,18 @@ if st.session_state.uploaded_data is not None:
                         st.error(f"Explanation Unavailable: {err_msg}")
 
             # Reporting
+            
+            with st.container(border=True):
+                st.markdown("#### ⚕️ FDA POLYPHARMACY SAFETY CHECK")
+                
+                for alert in interaction_alerts:
+                    st.markdown(
+                        f"<div style='padding:10px; border-radius:5px; border-left:5px solid {alert['color']}; background-color:#f8fafc; margin-bottom:10px;'>"
+                        f"<strong style='color:{alert['color']};'>{alert['level']}</strong><br/>"
+                        f"<span style='color:#334155;'>{alert['message']}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
 
             with st.container(border=True):
                 st.markdown("#### CASE HISTORY")
@@ -1007,6 +1024,7 @@ if st.session_state.uploaded_data is not None:
                         risk_score   = float(risk_prob),
                         top_features = dp_top_features,
                         model_id     = st.session_state.model_version,
+                        interaction_alerts=interaction_alerts
                     )
                     st.session_state.discharge_plan_text = plan_text
                     st.session_state["discharge_plan_patient_id"] = patient_id
@@ -1033,6 +1051,7 @@ if st.session_state.uploaded_data is not None:
                             risk_score   = float(risk_prob),
                             top_features = dp_top_features,
                             model_id     = st.session_state.model_version,
+                            interaction_alerts = interaction_alerts
                         )
                         from datetime import datetime
                         st.download_button(
@@ -1126,7 +1145,8 @@ with tab4:
                             "prob": prob,
                             "band": band,
                             "band_color": band_color,
-                            "interpretation": interpretation
+                            "interpretation": interpretation,
+                            "interaction_alerts": check_drug_interactions(patient_df.iloc[0].to_dict())
                         }
                     except Exception as exc:
                         st.error(f"⚠️ Prediction failed: {exc}")
@@ -1163,6 +1183,20 @@ with tab4:
                     st.markdown("---")
                     st.markdown("#### CLINICAL INTERPRETATION")
                     st.info(interp)
+
+                # NHS Polypharmacy Check for specific dynamic input
+                with st.container(border=True):
+                    st.markdown("#### ⚕️ FDA POLYPHARMACY SAFETY CHECK")
+                    st.caption("Real-time drug-drug interaction scanning via diagnostic data.")
+                    
+                    for alert in res["interaction_alerts"]:
+                        st.markdown(
+                            f"<div style='padding:10px; border-radius:5px; border-left:5px solid {alert['color']}; background-color:#f8fafc; margin-bottom:10px;'>"
+                            f"<strong style='color:{alert['color']};'>{alert['level']}</strong><br/>"
+                            f"<span style='color:#334155;'>{alert['message']}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
 
                 # Patient Input Summary card
                 with st.container(border=True):
