@@ -23,44 +23,44 @@ THRESHOLD_HR     = 0.604
 
 # Human-readable labels for admission_type_id (UCI dataset coding)
 ADMISSION_TYPE_LABELS: dict[str, str] = {
-    "1": "1 — Emergency",
-    "2": "2 — Urgent",
-    "3": "3 — Elective",
-    "4": "4 — Newborn",
-    "5": "5 — Not Available",
-    "6": "6 — NULL / Unknown",
-    "7": "7 — Trauma Centre",
-    "8": "8 — Not Mapped",
+    "1": "1 - Emergency",
+    "2": "2 - Urgent",
+    "3": "3 - Elective",
+    "4": "4 - Newborn",
+    "5": "5 - Not Available",
+    "6": "6 - NULL / Unknown",
+    "7": "7 - Trauma Centre",
+    "8": "8 - Not Mapped",
 }
 
 # Human-readable labels for discharge_disposition_id (UCI dataset coding)
 DISCHARGE_LABELS: dict[str, str] = {
-    "1":  "1 — Discharged to Home",
-    "2":  "2 — Discharged to Short-Term Care",
-    "3":  "3 — Discharged / Skilled Nursing Facility",
-    "4":  "4 — Discharged / ICF",
-    "5":  "5 — Discharged to Another Inpatient Care Facility",
-    "6":  "6 — Discharged to Home with Health Service",
-    "7":  "7 — Left AMA (Against Medical Advice)",
-    "8":  "8 — Discharged / Home IV Provider",
-    "9":  "9 — Admitted as Inpatient to This Hospital",
-    "10": "10 — Neonate Discharged to Another Hospital",
-    "11": "11 — Expired",
-    "12": "12 — Still Patient / Expected to Return",
-    "13": "13 — Hospice / Home",
-    "14": "14 — Hospice / Medical Facility",
-    "15": "15 — Discharged / Swing Bed",
-    "16": "16 — Discharged / Outpatient Rehab",
-    "17": "17 — Discharged / Psychiatric Hospital",
-    "18": "18 — NULL / Unknown",
-    "19": "19 — Discharged / Critical Access Hospital",
-    "20": "20 — Discharged / Another Type of Health Care Institution",
-    "22": "22 — Discharged / Rehab Facility",
-    "23": "23 — Discharged / Long-Term Care Hospital",
-    "24": "24 — Discharged / Nursing Facility — Medicaid",
-    "25": "25 — Not Mapped",
-    "27": "27 — Discharged / Federal Health Care Facility",
-    "28": "28 — Discharged / Psychiatric Distinct Part Unit",
+    "1":  "1 - Discharged to Home",
+    "2":  "2 - Discharged to Short-Term Care",
+    "3":  "3 - Discharged / Skilled Nursing Facility",
+    "4":  "4 - Discharged / ICF",
+    "5":  "5 - Discharged to Another Inpatient Care Facility",
+    "6":  "6 - Discharged to Home with Health Service",
+    "7":  "7 - Left AMA (Against Medical Advice)",
+    "8":  "8 - Discharged / Home IV Provider",
+    "9":  "9 - Admitted as Inpatient to This Hospital",
+    "10": "10 - Neonate Discharged to Another Hospital",
+    "11": "11 - Expired",
+    "12": "12 - Still Patient / Expected to Return",
+    "13": "13 - Hospice / Home",
+    "14": "14 - Hospice / Medical Facility",
+    "15": "15 - Discharged / Swing Bed",
+    "16": "16 - Discharged / Outpatient Rehab",
+    "17": "17 - Discharged / Psychiatric Hospital",
+    "18": "18 - NULL / Unknown",
+    "19": "19 - Discharged / Critical Access Hospital",
+    "20": "20 - Discharged / Another Type of Health Care Institution",
+    "22": "22 - Discharged / Rehab Facility",
+    "23": "23 - Discharged / Long-Term Care Hospital",
+    "24": "24 - Discharged / Nursing Facility - Medicaid",
+    "25": "25 - Not Mapped",
+    "27": "27 - Discharged / Federal Health Care Facility",
+    "28": "28 - Discharged / Psychiatric Distinct Part Unit",
 }
 
 # Fields that use a label→value mapping selectbox
@@ -79,7 +79,7 @@ def load_w6_manifest(manifest_path: str = MANIFEST_PATH) -> dict | None:
         st.error(f"⚠️ ERR-404: Manifest not found at `{manifest_path}`.")
         return None
     except json.JSONDecodeError as exc:
-        st.error(f"⚠️ ERR-JSON: Could not parse manifest — {exc}")
+        st.error(f"⚠️ ERR-JSON: Could not parse manifest - {exc}")
         return None
 
 
@@ -108,7 +108,7 @@ def load_w6_model(model_path: str):
         _patch_lr_compat(pipeline)
         return pipeline
     except Exception as exc:
-        st.error(f"⚠️ ERR-500: Failed to load model — {exc}")
+        st.error(f"⚠️ ERR-500: Failed to load model - {exc}")
         return None
 
 
@@ -184,7 +184,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     key     = f"w6_select_{feat}_{reset_key}"
                 )
                 reverse = {v: k for k, v in label_map.items()}
-                inputs[feat] = reverse.get(selected_label, selected_label.split(" — ")[0])
+                inputs[feat] = reverse.get(selected_label, selected_label.split(" - ")[0])
             else:
                 d   = spec.get("default", allowed[0])
                 idx = allowed.index(d) if d in allowed else 0
@@ -215,7 +215,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     key     = f"w6_select_{feat}_{reset_key}"
                 )
                 reverse = {v: k for k, v in label_map.items()}
-                inputs[feat] = reverse.get(selected_label, selected_label.split(" — ")[0])
+                inputs[feat] = reverse.get(selected_label, selected_label.split(" - ")[0])
             else:
                 d   = spec.get("default", allowed[0])
                 idx = allowed.index(d) if d in allowed else 0
@@ -250,24 +250,21 @@ def interpret_risk(prob: float, band: str, mode: str = "best_f1") -> str:
     """Return a plain-English interpretation of the calibrated risk score."""
     pct = prob * 100
     mode_note = (
-        "(screening mode — optimised for high recall)"
+        "Screening mode is active, optimised for high recall."
         if mode == "screening"
-        else "(best-F1 operating point)"
+        else "Standard operating point."
     )
     if band == "High":
         return (
-            f"⚠️ This patient has a **higher-than-average** calibrated readmission risk "
-            f"({pct:.1f}%) {mode_note}. "
-            "Early follow-up within **7 days** and targeted discharge planning are strongly recommended."
+            f"This patient has a high readmission risk ({pct:.1f}%). {mode_note} "
+            "Early follow-up within 7 days and targeted discharge planning are strongly recommended."
         )
     if band == "Moderate":
         return (
-            f"🟡 This patient carries a **moderate** calibrated readmission risk "
-            f"({pct:.1f}%) {mode_note}. "
-            "Follow-up within **14 days** and outpatient care coordination are advised."
+            f"This patient has a moderate readmission risk ({pct:.1f}%). {mode_note} "
+            "Follow-up within 14 days and outpatient care coordination are advised."
         )
     return (
-        f"✅ This patient has a **lower-than-average** calibrated readmission risk "
-        f"({pct:.1f}%) {mode_note}. "
+        f"This patient has a low readmission risk ({pct:.1f}%). {mode_note} "
         "Standard discharge protocols are appropriate."
     )

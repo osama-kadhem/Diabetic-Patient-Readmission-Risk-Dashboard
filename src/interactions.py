@@ -74,11 +74,5 @@ def check_drug_interactions(medications: dict) -> list[dict]:
                 "color": "#d97706"
             })
 
-    if not alerts and len(active_drugs) >= 2:
-         alerts.append({
-             "level": "✅ CLEAR",
-             "message": "OpenFDA Live API: No registered severe label contraindications found among checked drug pairs.",
-             "color": "#059669"
-         })
-         
+    # Return empty list if no DDIs found - UI handles the clean message
     return alerts

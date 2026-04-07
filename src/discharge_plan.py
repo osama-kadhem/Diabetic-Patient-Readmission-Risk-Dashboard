@@ -44,7 +44,7 @@ def generate_discharge_plan(
     elif band == "MODERATE":
         opening = (
             "Your results show **some factors** that could increase your chances of "
-            "returning to hospital. This is not alarming -- but there are a few things "
+            "returning to hospital. This is not alarming - but there are a few things "
             "worth paying attention to at home. "
             "Following the steps below will make a real difference."
         )
@@ -52,7 +52,7 @@ def generate_discharge_plan(
         opening = (
             "**Please read this carefully.** Your results suggest a higher chance of "
             "needing to return to hospital in the next month. "
-            "This does not mean something will definitely go wrong -- but it does mean "
+            "This does not mean something will definitely go wrong - but it does mean "
             "the team wants you to be extra careful at home and to get seen quickly "
             "if anything feels off."
         )
@@ -96,7 +96,7 @@ def generate_discharge_plan(
     elif band == "MODERATE":
         exercise_intro = "Regular movement will help your body recover and manage blood sugar:"
     else:
-        exercise_intro = "Start very gently -- even a little movement each day helps:"
+        exercise_intro = "Start very gently - even a little movement each day helps:"
     exercise_md = "\n".join(f"- {t}" for t in exercise_tips)
 
     # Medications
@@ -181,14 +181,14 @@ def generate_discharge_plan(
         "Blood sugar above 15 mmol/L (270 mg/dL) that will not come down",
         "Blood sugar below 4 mmol/L (70 mg/dL) with shaking, sweating or confusion",
         "A high fever (above 38.5 C) for more than 24 hours",
-        "Sudden confusion, slurred speech, or difficulty moving -- call 999 immediately",
+        "Sudden confusion, slurred speech, or difficulty moving - call 999 immediately",
     ]
     if band in ("HIGH", "MODERATE"):
         return_signs.insert(0, "You feel unwell for more than 24 hours and are not improving")
     return_md = "\n".join(f"- {s}" for s in return_signs)
 
     return_urgency = (
-        "Do not wait -- call 999 or go to A&E right away if you notice any of these."
+        "Do not wait - call 999 or go to A&E right away if you notice any of these."
         if band == "HIGH"
         else "It is always better to get checked early rather than waiting."
     )
@@ -308,7 +308,7 @@ _DIET_TIPS: dict[str, str] = {
     ),
     "num_medications": (
         "You are taking several medications. Take them all with water and a small meal to avoid "
-        "stomach upset. Avoid grapefruit juice — it can interfere with some medications. "
+        "stomach upset. Avoid grapefruit juice - it can interfere with some medications. "
         "Do not drink alcohol while on diabetes medication."
     ),
     "time_in_hospital": (
@@ -322,7 +322,7 @@ _DIET_TIPS: dict[str, str] = {
     ),
     "num_lab_procedures": (
         "Your blood tests show areas needing attention. Eat foods rich in fibre and low on the glycaemic index "
-        "— sweet potato, lentils, oats — to support stable blood sugar throughout the day."
+        "- sweet potato, lentils, oats - to support stable blood sugar throughout the day."
     ),
     "number_outpatient": (
         "Continue with your outpatient care programme. At your appointments, bring a 3-day food diary "
@@ -334,7 +334,7 @@ _DIET_TIPS: dict[str, str] = {
         "A consistent meal schedule helps your body manage insulin better."
     ),
     "insulin": (
-        "Your insulin dose has changed. Match your meal times to your insulin schedule — "
+        "Your insulin dose has changed. Match your meal times to your insulin schedule - "
         "do not eat much later than planned. Count carbohydrates at each meal and aim for "
         "the same amount each day to make your insulin more predictable."
     ),
@@ -348,7 +348,7 @@ _EXERCISE_TIPS: dict[str, str] = {
     ),
     "time_in_hospital": (
         "Rest is important in your first week home. Move around the house regularly to avoid "
-        "blood clots — aim to stand up and walk for 5 minutes every hour during the day."
+        "blood clots - aim to stand up and walk for 5 minutes every hour during the day."
     ),
     "num_medications": (
         "Light to moderate activity (walking, swimming) helps many diabetes medications work better. "
@@ -360,7 +360,7 @@ _EXERCISE_TIPS: dict[str, str] = {
     ),
     "insulin": (
         "Exercise affects how insulin works. Always carry fast-acting sugar (glucose tablets or juice) "
-        "when exercising. Walk, cycle, or swim — avoid very intense exercise until your dose is stable."
+        "when exercising. Walk, cycle, or swim - avoid very intense exercise until your dose is stable."
     ),
     "A1Cresult": (
         "Regular exercise is one of the most powerful ways to lower your HbA1c. "
@@ -418,7 +418,7 @@ def _return_to_hospital_advice(band: str, inpatient: int) -> list[str]:
         "Blood sugar below 4 mmol/L (70 mg/dL) with symptoms (shaking, sweating, confusion).",
         "Signs of infection at any wound site: redness, swelling, warmth, or discharge.",
         "High fever (above 38.5°C / 101°F) that does not respond to paracetamol.",
-        "Sudden confusion, slurred speech, or difficulty moving — call emergency services immediately.",
+        "Sudden confusion, slurred speech, or difficulty moving - call emergency services immediately.",
     ]
     follow_up = [
         "Your blood sugar stays consistently above 10 mmol/L despite taking your medication.",
@@ -427,13 +427,13 @@ def _return_to_hospital_advice(band: str, inpatient: int) -> list[str]:
         "You have concerns about your medications or side effects.",
     ]
     if band == "HIGH" or inpatient >= 2:
-        follow_up.insert(0, "You feel unwell for more than 24 hours — do not wait.")
+        follow_up.insert(0, "You feel unwell for more than 24 hours - do not wait.")
     return urgent, follow_up
 
 # PDF renderer
 
 class _PatientLetterPDF:
-    """Thin wrapper — builds a patient discharge letter using fpdf."""
+    """Thin wrapper - builds a patient discharge letter using fpdf."""
 
     # Colour palette
     _BLUE   = (3,  105, 161)
@@ -566,7 +566,7 @@ class _PatientLetterPDF:
                         "and contact us if you feel unwell.",
             "MODERATE": "Your readmission risk is MODERATE. Following the advice below will "
                         "significantly reduce your chances of returning to hospital.",
-            "LOW":      "Your readmission risk is LOW. Keep up the good work — "
+            "LOW":      "Your readmission risk is LOW. Keep up the good work - "
                         "the tips below will help you stay that way.",
         }[band]
         self._body(band_text)
@@ -578,7 +578,7 @@ class _PatientLetterPDF:
         pdf.set_text_color(255, 255, 255)
         pdf.set_font("Arial", "B", 11)
         pdf.set_x(pill_x)
-        label = self._s(f"  {band} RISK  --  Score: {risk_score:.0%}  ")
+        label = self._s(f"  {band} RISK  -  Score: {risk_score:.0%}  ")
         pdf.cell(0, 9, label, ln=True, fill=True, align="L")
         pdf.set_text_color(*self._SLATE)
         pdf.ln(4)
@@ -645,7 +645,7 @@ class _PatientLetterPDF:
         self._section_title("HOW TO STAY ACTIVE", self._BLUE)
         self._body(
             "Regular movement helps control blood sugar and improves your heart health. "
-            "Start gently — your body needs time to adjust after a hospital stay."
+            "Start gently - your body needs time to adjust after a hospital stay."
         )
         exercise_tips = _patient_exercise_advice(top_features, patient_row)
         self._bullet(exercise_tips, colour=self._SLATE)
@@ -663,13 +663,13 @@ class _PatientLetterPDF:
         if change in ("ch", "yes", "1") or insulin in ("up", "down") or has_alert:
             self._section_title("YOUR MEDICATIONS", self._ORANGE)
             med_lines = [
-                "Take all medications exactly as prescribed — do not stop or change doses without "
+                "Take all medications exactly as prescribed - do not stop or change doses without "
                 "speaking to your doctor first.",
             ]
             if change in ("ch", "yes", "1"):
                 med_lines.append(
                     "Your medications were changed during this admission. Make sure you understand "
-                    "what changed and why — ask your nurse or pharmacist if you are unsure."
+                    "what changed and why - ask your nurse or pharmacist if you are unsure."
                 )
             if insulin in ("up", "down"):
                 direction = "increased" if insulin == "up" else "decreased"
@@ -678,7 +678,7 @@ class _PatientLetterPDF:
                     "and record the readings to share with your doctor at your next appointment."
                 )
             med_lines.append(
-                "Keep a list of all your medicines and carry it with you at all times — "
+                "Keep a list of all your medicines and carry it with you at all times - "
                 "especially if you visit another doctor or go to an emergency department."
             )
             self._bullet(med_lines, colour=self._SLATE)
@@ -728,7 +728,7 @@ class _PatientLetterPDF:
         else:
             appt_msg = (
                 "A routine follow-up within 30 days is recommended. "
-                "Your GP will be in touch — you can also call them to arrange this."
+                "Your GP will be in touch - you can also call them to arrange this."
             )
         self._body(appt_msg)
 
@@ -770,7 +770,7 @@ def generate_patient_discharge_pdf(
       - 'When to return to hospital' red-flag list
       - Next appointment guidance
 
-    All advice is derived from the top risk features and patient values —
+    All advice is derived from the top risk features and patient values -
     no external API required.
 
     Parameters

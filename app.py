@@ -242,7 +242,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Model Registry — Best 3 models (XGBoost removed: requires unavailable libomp dependency)
+# Model Registry - Best 3 models (XGBoost removed: requires unavailable libomp dependency)
 MODEL_REGISTRY = {
   "lr_classweight_w7_final": "clinical_models/week10_final/lr_classweight_w7_final.joblib",
   "lr_classweight_w7":       "clinical_models/week7_experiments/lr_classweight_w7.pkl",
@@ -509,7 +509,7 @@ with st.sidebar:
     st.caption("🟢 **System Online**")
     st.caption(f"v2.5.0 | Build: {pd.Timestamp.now().strftime('%y%m%d')}")
 
-# Main content area — always show 4 tabs; tabs 1-3 require uploaded data
+# Main content area - always show 4 tabs; tabs 1-3 require uploaded data
 tab1, tab2, tab3, tab4 = st.tabs(["OVERVIEW", "PRIORITIZATION QUEUE", "PATIENT DOSSIER", "RISK PREDICTOR"])
 
 if st.session_state.uploaded_data is None:
@@ -958,14 +958,17 @@ if st.session_state.uploaded_data is not None:
             with st.container(border=True):
                 st.markdown("#### ⚕️ FDA POLYPHARMACY SAFETY CHECK")
                 
-                for alert in interaction_alerts:
-                    st.markdown(
-                        f"<div style='padding:10px; border-radius:5px; border-left:5px solid {alert['color']}; background-color:#f8fafc; margin-bottom:10px;'>"
-                        f"<strong style='color:{alert['color']};'>{alert['level']}</strong><br/>"
-                        f"<span style='color:#334155;'>{alert['message']}</span>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                if interaction_alerts:
+                    for alert in interaction_alerts:
+                        st.markdown(
+                            f"<div style='padding:10px; border-radius:5px; border-left:5px solid {alert['color']}; background-color:#f8fafc; margin-bottom:10px;'>"
+                            f"<strong style='color:{alert['color']};'>{alert['level']}</strong><br/>"
+                            f"<span style='color:#334155;'>{alert['message']}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.success("No drug interactions detected for this patient's current medication profile.")
 
             with st.container(border=True):
                 st.markdown("#### CASE HISTORY")
@@ -1018,7 +1021,7 @@ if st.session_state.uploaded_data is not None:
                 st.caption(
                     "Rule-based discharge recommendation derived from this patient's "
                     "risk score and feature drivers. Risk is banded (LOW / MODERATE / HIGH) "
-                    "— raw probabilities are not presented as precise clinical estimates."
+                    "- raw probabilities are not presented as precise clinical estimates."
                 )
 
                 # Auto-clear plan when the clinician switches to a different patient
@@ -1212,16 +1215,19 @@ with tab4:
                 # NHS Polypharmacy Check for specific dynamic input
                 with st.container(border=True):
                     st.markdown("#### ⚕️ FDA POLYPHARMACY SAFETY CHECK")
-                    st.caption("Real-time drug-drug interaction scanning via diagnostic data.")
+                    st.caption("Real time drug-drug interaction scanning via diagnostic data.")
                     
-                    for alert in res["interaction_alerts"]:
-                        st.markdown(
-                            f"<div style='padding:10px; border-radius:5px; border-left:5px solid {alert['color']}; background-color:#f8fafc; margin-bottom:10px;'>"
-                            f"<strong style='color:{alert['color']};'>{alert['level']}</strong><br/>"
-                            f"<span style='color:#334155;'>{alert['message']}</span>"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
+                    if res["interaction_alerts"]:
+                        for alert in res["interaction_alerts"]:
+                            st.markdown(
+                                f"<div style='padding:10px; border-radius:5px; border-left:5px solid {alert['color']}; background-color:#f8fafc; margin-bottom:10px;'>"
+                                f"<strong style='color:{alert['color']};'>{alert['level']}</strong><br/>"
+                                f"<span style='color:#334155;'>{alert['message']}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                    else:
+                        st.success("No drug interactions detected for this patient's current medication profile.")
 
                 # Patient Input Summary card
                 with st.container(border=True):
@@ -1243,9 +1249,9 @@ with tab4:
         # Academic disclaimer (always visible)
         st.markdown("---")
         st.info(
-            "**Academic Use Only** — This tool is a decision-support prototype "
-            "developed for educational purposes as part of a final-year project. "
-            "It is **not** a real clinical diagnostic tool and must not be used to "
+            "**Academic Use Only** - This tool is a decision support prototype "
+            "developed for educational purposes. "
+            "It is not a real clinical diagnostic tool and must not be used to "
             "inform actual patient care or treatment decisions."
         )
 # Footer

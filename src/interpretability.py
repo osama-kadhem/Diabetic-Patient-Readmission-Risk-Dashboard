@@ -143,7 +143,7 @@ def artifact_export_pack(stability_df, topk_sets, output_dir="clinical_models/re
             val.to_csv(Path(output_dir) / fn, index=False)
             
     # Create README
-    readme_content = f"""# Weeks 4 & 5 — Consolidated Research Pack
+    readme_content = f"""# Weeks 4 & 5 - Consolidated Research Pack
 
 Generated on: {pd.Timestamp.now().strftime('%Y-%m-%d')}
 
