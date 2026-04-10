@@ -162,14 +162,5 @@ Uploaded CSV files must include the following columns for the final model to pro
 
 ---
 
-## 🤖 Generative AI Declaration
-
-| Tool | Used For | How Verified / What I Changed |
-| :--- | :------- | :---------------------------- |
-| **Google Gemini** | Architecture planning; CSS styling iteration; debugging sklearn version compatibility issues; discharge plan structure | All generated code reviewed, tested manually, and adapted to project-specific requirements. Model training, feature engineering, and clinical logic written independently. |
-
-GenAI was used as a structured development partner for boilerplate reduction and debugging. All clinical logic (risk thresholds, calibration, feature interpretation, drug interaction checks) was implemented independently and validated against known dataset values. The ML pipeline, training script, and evaluation methodology were written without AI assistance.
-
----
 
 *Disclaimer: This software is an academic prototype for clinical decision support research. It is not a certified medical device and must not be used to inform actual patient care or treatment decisions.*
