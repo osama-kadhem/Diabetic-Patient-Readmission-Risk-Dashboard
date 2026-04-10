@@ -158,18 +158,23 @@ Uploaded CSV files must include the following columns for the final model to pro
 ### Dataset & Clinical Domain
 1. **Strack, B. et al. (2014)** 'Impact of HbA1c Measurement on Hospital Readmission Rates: Analysis of 70,000 Clinical Database Patient Records', *BioMed Research International*. DOI: [10.1155/2014/781670](https://doi.org/10.1155/2014/781670).
 2. **UCI Machine Learning Repository (2014)** 'Diabetes 130-US Hospitals for Years 1999-2008'. Available at: [UCI ML Repository](https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008).
-3. **OpenFDA (2026)** *Drug Label API*. U.S. Food and Drug Administration. Available at: [https://open.fda.gov](https://open.fda.gov).
-4. **Platt, J.C. (1999)** 'Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods', *Advances in Large Margin Classifiers*.
+3. **Kansagara, D. et al. (2011)** 'Risk Prediction Models for Hospital Readmission: A Systematic Review', *JAMA*, 306(15), pp. 1688-1698. DOI: [10.1001/jama.2011.1515](https://doi.org/10.1001/jama.2011.1515).
 
----
+### Visualisation Design
+4. **Munzner, T. (2014)** *Visualization Analysis and Design*. Boca Raton: CRC Press. All dashboard visualisations follow the channel ranking and expressiveness principles described in Chapter 5.
+5. **Cleveland, W.S. and McGill, R. (1984)** 'Graphical Perception: Theory, Experimentation, and Application to the Development of Graphical Methods', *Journal of the American Statistical Association*, 79(387), pp. 531-554. DOI: [10.2307/2288400](https://doi.org/10.2307/2288400).
 
-## 🤖 Generative AI Declaration
+### Class Imbalance & Calibration
+6. **Chawla, N.V. et al. (2002)** 'SMOTE: Synthetic Minority Over-sampling Technique', *Journal of Artificial Intelligence Research*, 16, pp. 321-357. DOI: [10.1613/jair.953](https://doi.org/10.1613/jair.953).
+7. **He, H. and Garcia, E.A. (2009)** 'Learning from Imbalanced Data', *IEEE Transactions on Knowledge and Data Engineering*, 21(9), pp. 1263-1284. DOI: [10.1109/TKDE.2008.239](https://doi.org/10.1109/TKDE.2008.239).
+8. **Platt, J.C. (1999)** 'Probabilistic Outputs for Support Vector Machines and Comparisons to Regularized Likelihood Methods', *Advances in Large Margin Classifiers*, MIT Press, pp. 61-74.
+9. **Niculescu-Mizil, A. and Caruana, R. (2005)** 'Predicting Good Probabilities with Supervised Learning', *Proceedings of the 22nd International Conference on Machine Learning (ICML)*, pp. 625-632. DOI: [10.1145/1102351.1102430](https://doi.org/10.1145/1102351.1102430).
 
-| Tool | Used For | How Verified / What I Changed |
-| :--- | :------- | :---------------------------- |
-| **Google Gemini** | Architecture planning; CSS styling iteration; debugging sklearn version compatibility issues; discharge plan structure | All generated code reviewed, tested manually, and adapted to project-specific requirements. Model training, feature engineering, and clinical logic written independently. |
+### Interpretability & Clinical Decision Support
+10. **Caruana, R. et al. (2015)** 'Intelligible Models for HealthCare: Predicting Pneumonia Risk and Hospital 30-day Readmission', *Proceedings of the 21st ACM SIGKDD International Conference on Knowledge Discovery and Data Mining*, pp. 1721-1730. DOI: [10.1145/2783258.2788613](https://doi.org/10.1145/2783258.2788613).
 
-GenAI was used as a structured development partner for boilerplate reduction and debugging. All clinical logic (risk thresholds, calibration, feature interpretation, drug interaction checks) was implemented independently and validated against known dataset values. The ML pipeline, training script, and evaluation methodology were written without AI assistance.
+### External APIs
+11. **OpenFDA (2026)** *Drug Label API*. U.S. Food and Drug Administration. Available at: [https://open.fda.gov](https://open.fda.gov).
 
 ---
 
