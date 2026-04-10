@@ -43,7 +43,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     # Color band based on risk
     if risk_band == 'High':
         r, g, b = 220, 38, 38
-    elif risk_band == 'Medium':
+    elif risk_band == 'Moderate':
         r, g, b = 217, 119, 6
     else:
         r, g, b = 5, 150, 105

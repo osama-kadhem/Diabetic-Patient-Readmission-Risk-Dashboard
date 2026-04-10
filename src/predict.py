@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 import warnings
 
-# The pipeline dictates the expected features.
-# Do NOT hard-code to 8 since the final Week 10 model takes 43 features.
+# The pipeline dictates the expected features at runtime.
 
 # Columns that would constitute target leakage if present in the input
 _LEAKY_COLUMNS = ['readmitted', 'readmitted_binary', 'label', 'target']

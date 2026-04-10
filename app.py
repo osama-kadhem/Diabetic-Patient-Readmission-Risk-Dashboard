@@ -21,8 +21,8 @@ from src.predict import predict_risk, rank_patients
 from src.reports import generate_patient_pdf
 import src.db as db
 from src.risk_calculator import (
-    load_w6_manifest, load_w6_model,
-    render_w6_form, compute_risk_band, interpret_risk,
+    load_manifest, load_model,
+    render_patient_form, compute_risk_band, interpret_risk,
     MANIFEST_PATH, _patch_lr_compat
 )
 from src.discharge_plan import generate_discharge_plan, generate_patient_discharge_pdf
@@ -45,8 +45,7 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
         if missing:
             return pd.DataFrame({'Error': [f"Missing feature columns: {missing[:3]}..."]})
             
-        # The final Week 10 pipeline uses the step name 'preprocess' (ColumnTransformer).
-        # Earlier week-4/5 pipelines used 'scaler' or 'preprocessor'.
+        # Resolve the preprocessor step (varies by pipeline version).
         preprocessor = (
             _pipeline.named_steps.get('preprocess') or
             _pipeline.named_steps.get('preprocessor') or
@@ -105,7 +104,7 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
             'Contribution': contributions,
         }).sort_values(by='Contribution', key=abs, ascending=False)
         
-        # Return top 10 impactful features for UI clarity
+    # Return top 10 impactful features
         return df_exp.head(10)
 
     except Exception as e:
@@ -113,8 +112,6 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
 
 db.init_db()
 
-# Page configuration already set at top
-# db.init_db() call moved below imports
 
 
 # Clinical Dashboard Style
@@ -242,11 +239,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Model Registry - Best 3 models (XGBoost removed: requires unavailable libomp dependency)
+# Model Registry
 MODEL_REGISTRY = {
-  "lr_classweight_w7_final": "clinical_models/week10_final/lr_classweight_w7_final.joblib",
-  "lr_classweight_w7":       "clinical_models/week7_experiments/lr_classweight_w7.pkl",
-  "lr_ros_w6":               "clinical_models/week6_candidate/lr_ros_w6.joblib"
+  "lr_classweight_w7_final": "clinical_models/final_model/lr_classweight_w7_final.joblib",
+  "lr_classweight_w7":       "clinical_models/research_models/lr_classweight_w7.pkl",
+  "lr_ros_w6":               "clinical_models/candidate_models/lr_ros_w6.joblib"
 }
 
 # Human-readable model labels for UI
@@ -256,8 +253,8 @@ MODEL_LABELS = {
   "lr_ros_w6":               "LR ROS (Week 6 Baseline)"
 }
 
-# Bump this constant to force Streamlit to discard any stale cached pipelines.
-_CACHE_VERSION = 3
+# Increment to force Streamlit to discard stale cached pipelines.
+_CACHE_VERSION = 5
 
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
@@ -273,11 +270,11 @@ if 'pipeline' not in st.session_state:
     st.session_state.pipeline = None
 if 'model_version' not in st.session_state:
     st.session_state.model_version = "lr_classweight_w7_final"
-if 'w6_reset_key' not in st.session_state:
-    st.session_state.w6_reset_key = 0
-if 'w6_result' not in st.session_state:
-    st.session_state.w6_result = None
-# Week 7 discharge plan state
+if 'risk_reset_key' not in st.session_state:
+    st.session_state.risk_reset_key = 0
+if 'risk_result' not in st.session_state:
+    st.session_state.risk_result = None
+# Discharge plan state
 if 'discharge_plan_text' not in st.session_state:
     st.session_state.discharge_plan_text = None
 
@@ -323,7 +320,7 @@ st.markdown(f"""
 
 @st.cache_resource
 def load_pipeline(version, _cache_version=_CACHE_VERSION):
-    """Load a week-4/5 sklearn Pipeline. _cache_version busts stale Streamlit caches."""
+    """Load a sklearn Pipeline. _cache_version busts stale Streamlit caches."""
     try:
         model_path = Path(MODEL_REGISTRY[version])
         
@@ -333,8 +330,7 @@ def load_pipeline(version, _cache_version=_CACHE_VERSION):
             
         with open(model_path, 'rb') as f:
             pipeline = joblib.load(f)
-        # Patch missing multi_class attribute (removed in sklearn 1.6) on
-        # any LogisticRegression steps pickled with an older sklearn version.
+        # Patch LogisticRegression compatibility across sklearn versions.
         _patch_lr_compat(pipeline)
         return pipeline
     except Exception as e:
@@ -467,8 +463,8 @@ with st.sidebar:
             
             if st.session_state.pipeline is not None:
                 with st.spinner("Analyzing..."):
-                    # Silently drop any target/label columns present in the
-                    # uploaded file (expected when using the UCI dataset).
+                    # Drop any target/label columns if present in the upload
+                    # (expected when using the UCI dataset).
                     _TARGET_COLS = ['readmitted', 'readmitted_binary', 'label', 'target']
                     _leaky = [c for c in _TARGET_COLS
                               if c in st.session_state.uploaded_data.columns]
@@ -601,7 +597,7 @@ if st.session_state.uploaded_data is not None:
                 with st.container(border=True):
                     st.markdown("#### Risk Distribution")
                     
-                    # ── Threshold reference lines (dynamic based on toggle) ──
+                    # Threshold reference lines
                     thresh_df = pd.DataFrame([
                         {'threshold': st.session_state.tau_mid, 'label': 'Moderate threshold'},
                         {'threshold': st.session_state.tau_high, 'label': 'High threshold'},
@@ -616,7 +612,7 @@ if st.session_state.uploaded_data is not None:
                         ), legend=alt.Legend(title='Thresholds'))
                     )
 
-                    # ── Histogram coloured by risk band ──────────────────────
+                    # Histogram coloured by risk band
                     risk_bars = alt.Chart(df_pred).mark_bar(opacity=0.85).encode(
                         x=alt.X(
                             'risk_probability:Q',
@@ -737,8 +733,6 @@ if st.session_state.uploaded_data is not None:
                 with col3:
                     show_top_k_only = st.checkbox("Show Top K Only", value=True, help=f"Limit to top {top_k} patients")
                 
-                st.markdown('</div>', unsafe_allow_html=True)
-            
             filtered_df = df_pred.copy()
             if search_patient:
                 filtered_df = filtered_df[
@@ -755,13 +749,11 @@ if st.session_state.uploaded_data is not None:
                 with col_header1:
                     st.markdown(f"#### Patient List ({len(filtered_df)} matches)")
                 
-                display_df = filtered_df.copy()
-                display_df['Risk Probability'] = display_df['risk_probability'].apply(lambda x: f"{x:.3%}")
                 st.dataframe(
-                    display_df[['patient_id', 'Risk Probability', 'risk_band', 'follow_up_priority']],
+                    filtered_df[['patient_id', 'risk_probability', 'risk_band', 'follow_up_priority']],
                     column_config={
                         "patient_id": "Patient ID",
-                        "Risk Probability": st.column_config.ProgressColumn(
+                        "risk_probability": st.column_config.ProgressColumn(
                             "Readmission Probability",
                             help="Predicted probability of 30-day readmission",
                             format="%.1f%%",
@@ -777,11 +769,8 @@ if st.session_state.uploaded_data is not None:
                     use_container_width=True,
                     hide_index=True
                 )
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                
+
             with st.container():
-                st.markdown('<div class="stCard">', unsafe_allow_html=True)
                 st.markdown("#### View Patient Details")
                 patient_ids = filtered_df['patient_id'].tolist()
                 col_sel1, col_sel2 = st.columns([3, 1])
@@ -818,8 +807,7 @@ if st.session_state.uploaded_data is not None:
                 active_pipe = load_pipeline(st.session_state.model_version)
             
             if active_pipe:
-                # Use joblib.hash() instead of str() to avoid triggering
-                # __repr__ which crashes on sklearn version-mismatched models.
+                # Hash the pipeline object for caching
                 pipeline_hash = joblib.hash(active_pipe)
                 exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
 
@@ -1019,7 +1007,7 @@ if st.session_state.uploaded_data is not None:
             st.markdown("### 📋 DISCHARGE PLAN")
             with st.container(border=True):
                 st.caption(
-                    "Rule-based discharge recommendation derived from this patient's "
+                    "Rule based discharge recommendation derived from this patient's "
                     "risk score and feature drivers. Risk is banded (LOW / MODERATE / HIGH) "
                     "- raw probabilities are not presented as precise clinical estimates."
                 )
@@ -1107,7 +1095,7 @@ if st.session_state.uploaded_data is not None:
 with tab4:
     st.markdown("### INDIVIDUAL RISK PREDICTOR")
 
-    manifest = load_w6_manifest(MANIFEST_PATH)
+    manifest = load_manifest(MANIFEST_PATH)
 
     if manifest is None:
         st.warning(
@@ -1115,12 +1103,12 @@ with tab4:
             "Ensure the file exists and is valid JSON."
         )
     else:
-        w6_pipeline = load_w6_model(manifest["model_path"])
+        risk_pipeline = load_model(manifest["model_path"])
 
-        if w6_pipeline is None:
+        if risk_pipeline is None:
             st.warning(
                 "The readmission risk model could not be loaded. "
-                "Ensure `clinical_models/week10_final/lr_classweight_w7_final.joblib` is present and intact."
+                "Ensure `clinical_models/final_model/lr_classweight_w7_final.joblib` is present and intact."
             )
         else:
             # Compact Header Row
@@ -1129,14 +1117,14 @@ with tab4:
                  st.caption("Enter patient clinical values below to compute a real-time hospital readmission risk score.")
             with hdr_col2:
                 if st.button("↺ Reset Form", use_container_width=True):
-                    st.session_state.w6_reset_key += 1
-                    st.session_state.w6_result = None
+                    st.session_state.risk_reset_key += 1
+                    st.session_state.risk_result = None
                     st.rerun()
 
             # Dynamic input form
             with st.container(border=True):
-                with st.form(key="w6_patient_form", border=False):
-                    patient_df = render_w6_form(manifest, reset_key=st.session_state.w6_reset_key)
+                with st.form(key="patient_risk_form", border=False):
+                    patient_df = render_patient_form(manifest, reset_key=st.session_state.risk_reset_key)
                     submitted = st.form_submit_button(
                         "RUN CLINICAL RISK ANALYSIS",
                         type="primary",
@@ -1149,9 +1137,9 @@ with tab4:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", UserWarning)
                             
-                            # Auto-pad missing 28 features for Week 10 final model
+                            # Pad missing features for the final model
                             try:
-                                expected_cols = list(w6_pipeline.feature_names_in_)
+                                expected_cols = list(risk_pipeline.feature_names_in_)
                                 for col in expected_cols:
                                     if col not in patient_df.columns:
                                         if col == 'num_lab_procedures': patient_df[col] = 44.0
@@ -1165,10 +1153,10 @@ with tab4:
                             except AttributeError:
                                 patient_df_ordered = patient_df
                                 
-                            prob = float(w6_pipeline.predict_proba(patient_df_ordered)[0, 1])
+                            prob = float(risk_pipeline.predict_proba(patient_df_ordered)[0, 1])
                         band, band_color = compute_risk_band(prob, mode=st.session_state.get('op_mode_name', 'best_f1'))
                         interpretation   = interpret_risk(prob, band, mode=st.session_state.get('op_mode_name', 'best_f1'))
-                        st.session_state.w6_result = {
+                        st.session_state.risk_result = {
                             "patient_df": patient_df,
                             "prob": prob,
                             "band": band,
@@ -1178,11 +1166,11 @@ with tab4:
                         }
                     except Exception as exc:
                         st.error(f"⚠️ Prediction failed: {exc}")
-                        st.session_state.w6_result = None
+                        st.session_state.risk_result = None
 
             # Results display
-            if st.session_state.w6_result is not None:
-                res        = st.session_state.w6_result
+            if st.session_state.risk_result is not None:
+                res        = st.session_state.risk_result
                 prob       = res["prob"]
                 band       = res["band"]
                 band_color = res["band_color"]
@@ -1212,7 +1200,7 @@ with tab4:
                     st.markdown("#### CLINICAL INTERPRETATION")
                     st.info(interp)
 
-                # NHS Polypharmacy Check for specific dynamic input
+                # Polypharmacy check for individual risk prediction
                 with st.container(border=True):
                     st.markdown("#### ⚕️ FDA POLYPHARMACY SAFETY CHECK")
                     st.caption("Real time drug-drug interaction scanning via diagnostic data.")
@@ -1258,8 +1246,8 @@ with tab4:
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #6c757d; font-size: 0.85em;'>"
-    "Patient Dashboard v1.0 | Demo"
-
+    "Clinical Readmission Risk Dashboard v2.5.0 "
+    "| Academic Use Only"
     "</div>",
     unsafe_allow_html=True
 )

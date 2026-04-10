@@ -1,6 +1,9 @@
 """
-Integration module for dynamic risk computation & modeling.Readmission Risk Predictor
-Logistic Regression + Random Over-Sampling pipeline.
+Risk Calculator Module
+
+Handles manifest loading, model loading, dynamic form rendering,
+risk-band classification, and plain-English interpretation for the
+Individual Risk Predictor tab.
 """
 
 from __future__ import annotations
@@ -13,13 +16,11 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-MANIFEST_PATH = "clinical_models/week10_final/feature_manifest.json"
+MANIFEST_PATH = "clinical_models/final_model/feature_manifest.json"
 
-# Week 8 calibrated operating thresholds (Platt-scaled lr_classweight_w7)
-# Best-F1 mode (default):      τ = 0.514
-# High-recall / screening mode: τ = 0.604
-THRESHOLD_F1     = 0.514
-THRESHOLD_HR     = 0.604
+# Calibrated operating thresholds (Platt-scaled Logistic Regression)
+THRESHOLD_F1     = 0.514   # Best-F1 operating point
+THRESHOLD_HR     = 0.604   # High-recall / screening operating point
 
 # Human-readable labels for admission_type_id (UCI dataset coding)
 ADMISSION_TYPE_LABELS: dict[str, str] = {
@@ -70,7 +71,7 @@ _CODED_FIELDS = {
 }
 
 
-def load_w6_manifest(manifest_path: str = MANIFEST_PATH) -> dict | None:
+def load_manifest(manifest_path: str = MANIFEST_PATH) -> dict | None:
     """Load the feature manifest. Returns None on failure."""
     try:
         with open(manifest_path, "r") as fh:
@@ -84,7 +85,7 @@ def load_w6_manifest(manifest_path: str = MANIFEST_PATH) -> dict | None:
 
 
 def _patch_lr_compat(pipeline) -> None:
-    """Inject missing multi_class attribute for sklearn 1.6/1.8 compatibility."""
+    """Inject missing multi_class attribute for cross-version sklearn compatibility."""
     try:
         from sklearn.linear_model import LogisticRegression
         for _, step in pipeline.steps:
@@ -95,7 +96,7 @@ def _patch_lr_compat(pipeline) -> None:
 
 
 @st.cache_resource(show_spinner="Loading readmission risk model…")
-def load_w6_model(model_path: str):
+def load_model(model_path: str):
     """Load and cache the risk pipeline. Returns None on failure."""
     try:
         p = Path(model_path)
@@ -112,7 +113,7 @@ def load_w6_model(model_path: str):
         return None
 
 
-def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
+def render_patient_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
     """
     Render the patient input form from the manifest in a compact 3-column layout.
     """
@@ -122,12 +123,9 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
 
     inputs: dict[str, object] = {}
 
-    # Reorder numeric features based on Week 9 robustness findings
-    # number_inpatient is highly sensitive (+0.036 delta), make it prominent
+    # Reorder: most sensitive feature first, least sensitive last
     primary_num = [f for f in num_order if f == "number_inpatient"]
-    # lab procedures and outpatient are insensitive (+0.0003 delta), make them secondary
     secondary_num = [f for f in num_order if f in ["num_lab_procedures", "number_outpatient"]]
-    # The rest are in the middle
     middle_num = [f for f in num_order if f not in primary_num and f not in secondary_num]
 
     col1, col2, col3 = st.columns(3)
@@ -143,7 +141,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                 max_value = int(spec["max"]),
                 value     = int(spec["median"]),
                 step      = int(step),
-                key       = f"w6_slider_{feat}_{reset_key}",
+                key       = f"slider_{feat}_{reset_key}",
             )
             
         st.markdown("**📊 Core Metrics**")
@@ -156,7 +154,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                 max_value = int(spec["max"]),
                 value     = int(spec["median"]),
                 step      = int(step),
-                key       = f"w6_slider_{feat}_{reset_key}",
+                key       = f"slider_{feat}_{reset_key}",
             )
 
     # Split categorical features between col2 and col3
@@ -181,7 +179,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     label   = spec["description"],
                     options = label_list,
                     index   = idx,
-                    key     = f"w6_select_{feat}_{reset_key}"
+                    key     = f"select_{feat}_{reset_key}"
                 )
                 reverse = {v: k for k, v in label_map.items()}
                 inputs[feat] = reverse.get(selected_label, selected_label.split(" - ")[0])
@@ -192,7 +190,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     label   = spec["description"],
                     options = allowed,
                     index   = idx,
-                    key     = f"w6_select_{feat}_{reset_key}"
+                    key     = f"select_{feat}_{reset_key}"
                 )
 
     with col3:
@@ -212,7 +210,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     label   = spec["description"],
                     options = label_list,
                     index   = idx,
-                    key     = f"w6_select_{feat}_{reset_key}"
+                    key     = f"select_{feat}_{reset_key}"
                 )
                 reverse = {v: k for k, v in label_map.items()}
                 inputs[feat] = reverse.get(selected_label, selected_label.split(" - ")[0])
@@ -223,7 +221,7 @@ def render_w6_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
                     label   = spec["description"],
                     options = allowed,
                     index   = idx,
-                    key     = f"w6_select_{feat}_{reset_key}"
+                    key     = f"select_{feat}_{reset_key}"
                 )
 
     ordered_cols = num_order + cat_order

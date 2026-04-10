@@ -159,7 +159,7 @@ def generate_discharge_plan(
             "Check it at home every day and record the numbers."
         )
         
-    # Clinical Recommendations (Week 9 Robustness)
+    # Clinical recommendations based on risk band
     rec_md = ""
     if band == "HIGH":
         rec_md = (
@@ -478,7 +478,7 @@ class _PatientLetterPDF:
         self._pdf.set_margins(15, 20, 15)
         self._pdf.set_auto_page_break(auto=True, margin=20)
 
-    # ── helpers ──────────────────────────────────────────────────────────────
+    # Helpers
 
     @staticmethod
     def _s(text: str) -> str:
@@ -525,7 +525,7 @@ class _PatientLetterPDF:
             self._pdf.ln(1)
         self._pdf.ln(2)
 
-    # ── public build ─────────────────────────────────────────────────────────
+    # Public build
 
     def build(
         self,

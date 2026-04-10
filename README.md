@@ -1,114 +1,175 @@
-# Clinical Readmission Risk Dashboard
+# 🏥 Clinical Readmission Risk Dashboard
 
-**Anticipate. Intervene. Care.**
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.50-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.6-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
+[![SQLite](https://img.shields.io/badge/SQLite-3.x-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org)
+[![OpenFDA](https://img.shields.io/badge/OpenFDA-Live%20API-0369a1?style=for-the-badge)](https://open.fda.gov)
 
-A remarkably intelligent, privacy-first clinical decision support system designed specifically to predict 30-day hospital readmissions for diabetic patients. Built on a foundation of rigorous machine learning, it places actionable insights instantly into the hands of clinicians, transforming complex data into clear, life-saving foresight.
-
----
-
-## Uncompromising Intelligence
-Powered by a calibrated, class-weighted Logistic Regression engine, the dashboard evaluates complex patient demographics, medication histories, and admission data in milliseconds. It cuts through severe data imbalance, ensuring the most vulnerable patients are never overlooked.
-
-- **Intelligent Risk Stratification:** Automatically groups patient encounters into High, Moderate, and Low risk bands based on meticulously optimized clinical thresholds.
-- **Deep Interpretability:** See the "why" behind every prediction. The Patient Dossier intuitively surfaces the top ten features driving a patient's risk score, replacing algorithmic black-boxes with complete clinical transparency.
-- **Live Polypharmacy Safety Checks:** Seamlessly integrated with the U.S. Government's OpenFDA clinical API. The system dynamically queries real-time federal databases to detect severe drug-drug interactions (DDI) directly from the patient's active medication list, appending critical safety alerts to the clinician's dossier.
-- **Dynamic What-If Analysis:** Interactively model discharge scenarios. Adjust medications and prior admission histories to instantly witness the projected impact on patient risk in real time.
-- **Tiered Discharge Planning:** Automatically generate and export high-fidelity, secure PDF discharge dossiers outlining targeted intervention strategies for at-risk patients.
-- **Frictionless Workflow:** Seamlessly upload standard HL7/CSV encounter extracts, define your daily intervention capacity, and let the system intelligently prioritize your team's follow-up queue.
-
-## Privacy by Design
-In healthcare, trust is paramount. The system is engineered to operate efficiently with uncompromising focus on data security and compliance.
-
-- **Local Autonomy:** Zero reliance on an external cloud. All sensitive patient data is processed strictly locally within your institution's secure network environment.
-- **Cryptographic Assurance:** Every machine learning model is subjected to an SHA-256 integrity verification upon load, ensuring the clinical logic has never been compromised or tampered with.
-- **Auditable Accountability:** A robust, onboard SQLite architecture silently logs every prediction batch, session authentication, and patient dossier interaction, enabling seamless compliance reporting and post-hoc clinical reviews.
-
-## Built on Scientific Rigor
-The application doesn't just predict; it proves its accuracy through empirical validation.
-
-- **Imbalance Resilience:** Developed specifically to handle severe class imbalances (~11.2% positive rate) using advanced class-weighting and random oversampling techniques across an 80/20 patient-grouped data split.
-- **Calibrated Precision:** Employs Platt scaling (Isotonic regression) to ensure raw model outputs represent true clinical probabilities.
-- **Dual Operating Modes:** Swap seamlessly between the **Best-F1** point (maximizing general accuracy) and the **High-Recall Screening** point (aggressively flagging at-risk patients to leave no stone unturned).
+> A privacy-first clinical decision support system that predicts **30-day hospital readmissions** for diabetic patients. Built on calibrated Logistic Regression and the UCI Diabetes 130-US Hospitals dataset, it transforms complex patient data into actionable clinical intelligence.
 
 ---
 
-## Getting Started
+## 🌐 Local Development
 
-Everything you need to deploy the platform locally, streamlined into a few elegant steps.
+Once running locally (see [Quickstart](#-developer-quickstart) below), the dashboard is accessible at:
 
-### 1. Prerequisites
-Ensure you have the following installed on your machine:
-- Python 3.10 or later
-- pip (Python package installer)
+| Service          | Endpoint                                   |
+| :--------------- | :----------------------------------------- |
+| **Dashboard**    | [http://localhost:8501](http://localhost:8501) |
+| **Login**        | One-click clinical authentication           |
 
-### 2. Setup Your Environment
-Clone the repository and install the precisely defined dependencies:
+**Default Session:** `DR. OSAMA SALEH (DEPT-CARDIO)`
+
+---
+
+## 🏆 Research-Led Features:
+
+This project extends the core prediction requirement with clinically motivated features designed to demonstrate advanced data integration and professional implementation.
+
+### ⚕️ 1. Live Polypharmacy Safety Checks (External API Integration)
+
+The dashboard integrates with the **U.S. Government OpenFDA API** in real time. When a patient has multiple active diabetes medications (e.g. Insulin + Glipizide), the system dynamically queries the federal drug label database for registered drug-drug interactions (DDI). Detected contraindications are surfaced as colour-coded safety alerts in both the UI and exported PDFs. If the API is unreachable, a local heuristic fallback ensures patient safety is never compromised.
+
+### 📊 2. Interactive Risk Visualisation (Altair Analytics)
+
+The Overview tab renders an interactive **risk distribution histogram** with real-time threshold reference lines, a **donut chart** for risk-band proportions, and a **horizontal bar chart** showing per-patient feature contributions (risk drivers vs. protective factors). All charts are built with Altair for full interactivity and zoom.
+
+### 🔐 3. Privacy & Security Hardening
+
+- **Fernet Encryption:** All clinical notes stored in the SQLite audit log are encrypted at rest using `cryptography.fernet`. The encryption key is auto-generated on first run and stored outside the repository.
+- **SHA-256 Model Integrity:** Every ML pipeline is hashed on load to detect tampering.
+- **Full Audit Trail:** Every login, prediction batch, patient dossier access, and intervention is logged to SQLite for compliance.
+
+### 📋 4. Personalised Discharge Planning
+
+A rule-based discharge plan generator produces patient-facing letters in plain English, with personalised:
+- **Diet advice** (mapped to the patient's top risk drivers)
+- **Exercise recommendations** (adapted by risk band severity)
+- **Medication adherence reminders** (triggered by insulin/medication changes)
+- **"When to return to hospital" red-flag list**
+
+Plans are exportable as professional **PDF letters** via `fpdf`, ready for clinical handover.
+
+---
+
+## 🏗️ Technical Implementation & Rationale
+
+**Python + Streamlit:** Python's numerical ecosystem (scikit-learn, pandas, numpy) is the natural choice for clinical ML pipelines. Streamlit was chosen over Flask/Django for rapid, interactive dashboard prototyping with native support for caching (`@st.cache_resource`), session state, and reactive widgets — all critical for a clinical workflow where clinicians need instant feedback.
+
+**Calibrated Logistic Regression:** The final model uses class-weighted Logistic Regression with Platt scaling (isotonic calibration) to ensure raw outputs represent true clinical probabilities. This was chosen over black-box models (XGBoost, neural networks) for two reasons: (1) full linear interpretability — clinicians can see exactly which features drive each prediction via coefficient×value decomposition; (2) calibrated probabilities are essential for clinical thresholds — an uncalibrated "0.6" is meaningless, but a calibrated 60% readmission probability directly informs triage decisions.
+
+**SQLite + Fernet Encryption:** SQLite provides zero-configuration portability for a self-contained clinical prototype. All patient intervention notes are encrypted at rest with Fernet symmetric encryption, ensuring sensitive clinical data is never stored in plaintext. The encryption key (`data/.clinical_key`) is auto-generated and gitignored.
+
+**OpenFDA Integration:** The drug-drug interaction checker queries `api.fda.gov/drug/label.json` in real time, searching for registered contraindications between the patient's active diabetes medications. This demonstrates live external API integration with graceful degradation (offline heuristic fallback).
+
+### 📂 Directory Structure
+
+```text
+demo/
+├── app.py                  # Primary clinician-facing Streamlit interface
+├── clinical_models/        # Validated ML pipelines and experiment artifacts
+│   ├── final_model/        # Final calibrated model, manifest, and validation data
+│   └── ...                 # Iterative experiment tracking directories
+├── data/                   # Patient cohort CSVs, SQLite audit DB, encryption key
+├── setup/                  # Environment preparation and training scripts
+│   ├── requirements.txt    # Pinned dependency index
+│   └── train_model.py      # Automated baseline training pipeline
+└── src/                    # Core clinical decision logic
+    ├── __init__.py          # Package initialiser
+    ├── data_validation.py   # Incoming CSV schema validation
+    ├── db.py                # Encrypted SQLite audit and prediction logging
+    ├── discharge_plan.py    # Rule-based discharge plan and PDF letter generator
+    ├── interactions.py      # Live OpenFDA drug-drug interaction engine
+    ├── interpretability.py  # SHAP-based global feature importance (training only)
+    ├── predict.py           # Batch inference and risk ranking engine
+    ├── reports.py           # Patient dossier PDF report generator
+    └── risk_calculator.py   # Individual risk predictor forms and interpretation
+```
+
+---
+
+## 📊 Core ML Concepts
+
+### 1. Class-Weighted Logistic Regression
+
+The UCI Diabetes dataset has a severe class imbalance (~11.2% positive readmission rate). Standard models would trivially predict "no readmission" for every patient. The system addresses this via:
+- **Class weighting:** `class_weight='balanced'` inversely weights the loss function by class frequency.
+- **Random Over-Sampling (ROS):** Baseline models are also trained with oversampled minority examples for comparison.
+
+### 2. Calibrated Clinical Thresholds
+
+Raw model outputs are post-hoc calibrated using **Platt scaling (isotonic regression)** so that a predicted probability of 0.60 truly corresponds to a 60% readmission risk. The dashboard offers two operating modes:
+
+| Mode | Threshold | Use Case |
+| :--- | :-------- | :------- |
+| **Best-F1** (Default) | τ = 0.514 | Maximises overall accuracy |
+| **High-Recall Screening** | τ = 0.604 | Aggressively flags at-risk patients |
+
+### 3. Feature-Level Interpretability
+
+For every patient, the system decomposes the prediction into individual feature contributions using `coefficient × scaled_value`. The top 10 features are displayed as a **horizontal diverging bar chart** (red = increases risk, green = protective). This replaces black-box SHAP with a fully deterministic, auditable explanation.
+
+---
+
+## 🏁 Developer Quickstart
+
+### 1. Setup
 ```bash
-# Navigate to the project directory
-cd final-project-demo
+git clone <repository-url>
+cd demo
 
-# Install the required packages
+# Create and activate virtual environment
+python3 -m venv .venv && source .venv/bin/activate
+
+# Install dependencies
 pip install -r setup/requirements.txt
 ```
 
-### 3. Launch the Application
-Start the Streamlit environment. The dashboard will instantly become available in your default web browser:
+### 2. Run Locally
 ```bash
+# Launch the Streamlit dashboard
 streamlit run app.py
 ```
-*(Optional)* To regenerate synthetic training data and establish a baseline model locally, run `python setup/train_model.py` prior to launching the dashboard.
 
----
-
-## 🏥 The Clinical Workflow
-
-Beautiful software should be fundamentally simple to use. Here is how your clinical team will interact with the system on a daily basis:
-
-1. **Secure Authentication:** Log into the immutable session state. Your interactions and decisions are securely bound to your session.
-2. **Ingest Patient Data:** Upload an exported CSV file of recent diabetic encounters from your hospital's Electronic Health Record (EHR) database.
-3. **Configure Constraints:** Set the team's intervention capacity for the day (e.g., 20 patients). The system adjusts its prioritization algorithms accordingly.
-4. **Run Analysis:** The engine processes the batch, applying SHA-256 validated models to score and rank patients.
-5. **Review the Queue:** Focus immediately on the High-Risk band in the Prioritization Queue.
-6. **Export Actionable Plans:** Dive into the Patient Dossier to analyze feature impacts, run What-If simulations, and export a generated PDF action plan directly to the discharging physician.
-
----
-
-## Data Schema Expectations
-
-To ensure flawless analysis, uploaded CSV files must include the following structural features:
-- **Identifiers:** `patient_id` or `patient_nbr`
-- **Clinical Numerics:** `time_in_hospital`, `num_medications`, `number_inpatient`, `number_outpatient`, `number_emergency`.
-- **Demographics & Categories:** `age`, `A1Cresult`, `admission_type_id`, `discharge_disposition_id`.
-- **Medication Indicators:** `insulin`, `change`, `diabetesMed`, `metformin`, `glipizide`, `glyburide`.
-
-*Note: The system intelligently drops any target labels (`readmitted` or `target`) to prevent data leakage during live inference.*
-
----
-
-## Project Architecture
-
-Elegant design extends deeply into the codebase. Modules are strictly delineated to separate logic, data, and presentation.
-
-```text
-final-project-demo/
-├── app.py                  # Primary clinician-facing Streamlit interface
-├── clinical_models/        # Cryptographically hashed, calibrated ML assets
-│   ├── week10_final/       # Final deployment models and validation manifests
-│   └── ...                 # Iterative experiment tracking directories
-├── data/                   # Patient cohort CSVs and generated datasets
-├── setup/                  # Environment preparation and synthetic data scripts
-│   ├── requirements.txt    # Project dependency index
-│   └── train_model.py      # Automated baseline training pipeline
-└── src/                    # Core clinical decision logic and utilities
-    ├── data_validation.py  # Incoming data schema assurance & verification
-    ├── db.py               # Secure SQLite audit and prediction logging backend
-    ├── discharge_plan.py   # Secure, exportable PDF intervention generation
-    ├── interactions.py     # Live OpenFDA API DDI engine & safety heuristics
-    ├── predict.py          # Core inference mapping and risk ranking engine
-    ├── reports.py          # Supplementary patient dossier formatting integrations
-    └── risk_calculator.py  # What-If simulation forms & engine constraint mapping
+*(Optional)* To retrain baseline models from source data:
+```bash
+python setup/train_model.py
 ```
 
 ---
 
-*Disclaimer: This software is designed as a sophisticated demonstrative tool for data analysis and clinical decision support. It is engineered to augment, not replace, professional medical judgment.*
+## 📦 Data Schema
+
+Uploaded CSV files must include the following columns for the final model to produce valid predictions:
+
+| Category | Required Columns |
+| :------- | :--------------- |
+| **Numeric** | `time_in_hospital`, `num_medications`, `number_inpatient`, `number_emergency`, `number_outpatient` |
+| **Categorical** | `age`, `A1Cresult`, `insulin`, `change`, `diabetesMed`, `metformin`, `glipizide`, `glyburide`, `max_glu_serum`, `admission_type_id`, `discharge_disposition_id` |
+| **Identifiers** | `patient_nbr` or `patient_id` (recommended) |
+
+> **Note:** The system automatically drops any target labels (`readmitted`, `readmitted_binary`, `target`) to prevent data leakage during live inference.
+
+---
+
+## 🔬 Academic References
+
+1. **Strack, B. et al. (2014)** 'Impact of HbA1c Measurement on Hospital Readmission Rates: Analysis of 70,000 Clinical Database Patient Records', *BioMed Research International*. DOI: [10.1155/2014/781670](https://doi.org/10.1155/2014/781670).
+2. **UCI Machine Learning Repository (2014)** 'Diabetes 130-US Hospitals for Years 1999-2008'. Available at: [UCI ML Repository](https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008).
+3. **OpenFDA (2026)** *Drug Label API*. U.S. Food and Drug Administration. Available at: [https://open.fda.gov](https://open.fda.gov).
+4. **Platt, J.C. (1999)** 'Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods', *Advances in Large Margin Classifiers*.
+
+---
+
+## 🤖 Generative AI Declaration
+
+| Tool | Used For | How Verified / What I Changed |
+| :--- | :------- | :---------------------------- |
+| **Google Gemini** | Architecture planning; CSS styling iteration; debugging sklearn version compatibility issues; discharge plan structure | All generated code reviewed, tested manually, and adapted to project-specific requirements. Model training, feature engineering, and clinical logic written independently. |
+
+GenAI was used as a structured development partner for boilerplate reduction and debugging. All clinical logic (risk thresholds, calibration, feature interpretation, drug interaction checks) was implemented independently and validated against known dataset values. The ML pipeline, training script, and evaluation methodology were written without AI assistance.
+
+---
+
+*Disclaimer: This software is an academic prototype for clinical decision support research. It is not a certified medical device and must not be used to inform actual patient care or treatment decisions.*
