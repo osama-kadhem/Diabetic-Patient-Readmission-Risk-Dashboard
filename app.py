@@ -268,12 +268,38 @@ _session_defaults = {
 for _k, _v in _session_defaults.items():
     st.session_state.setdefault(_k, _v)
 
-def check_model_integrity(file_path):
+def compute_model_hash(file_path: str) -> str:
+    """Compute the SHA-256 hash of a model file."""
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
+
+def check_model_integrity(file_path: str) -> str:
+    """
+    Verify model integrity via SHA-256. On first load the hash is stored as a
+    sidecar .sha256 file. On subsequent loads the recomputed hash is compared
+    against the stored value; a mismatch raises RuntimeError before any
+    prediction is served.
+    """
+    model_path = Path(file_path)
+    hash_path  = model_path.with_suffix(".sha256")
+    current    = compute_model_hash(file_path)
+
+    if hash_path.exists():
+        stored = hash_path.read_text().strip()
+        if stored != current:
+            raise RuntimeError(
+                f"SHA-256 integrity check FAILED for {model_path.name}. "
+                "The model file may have been tampered with or corrupted. "
+                f"Stored: {stored[:12]}…  Current: {current[:12]}…"
+            )
+    else:
+        # First load — store hash as trust-on-first-use baseline
+        hash_path.write_text(current)
+
+    return current
 
 def login_screen():
     st.markdown("""
@@ -317,7 +343,14 @@ def load_pipeline(version, _cache_version=_CACHE_VERSION):
         if not model_path.exists():
             st.error(f"ERR-404: Model file not found at {model_path}.")
             return None
-            
+
+        try:
+            model_hash = check_model_integrity(str(model_path))
+            st.caption(f"SHA-256 verified: `{model_hash[:16]}…`")
+        except RuntimeError as integrity_err:
+            st.error(f"INTEGRITY FAILURE: {integrity_err}")
+            return None
+
         with open(model_path, 'rb') as f:
             pipeline = joblib.load(f)
         # Patch LogisticRegression compatibility across sklearn versions.
