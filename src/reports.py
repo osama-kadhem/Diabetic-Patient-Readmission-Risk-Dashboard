@@ -5,7 +5,6 @@ import io
 
 class PatientReport(FPDF):
     def header(self):
-        # Logo or Title
         self.set_font('Arial', 'B', 15)
         self.set_text_color(3, 105, 161) # #0369a1
         self.cell(0, 10, 'CLINICAL PATIENT DOSSIER', 0, 1, 'C')
@@ -31,7 +30,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     pdf.set_font('Arial', '', 10)
     pdf.ln(5)
     
-    # Risk Info
+    # Risk score and band
     risk_prob = patient_row['risk_probability']
     risk_band = patient_row['risk_band']
     priority = patient_row['follow_up_priority']
@@ -40,7 +39,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     start_y = pdf.get_y()
     pdf.cell(55, 8, 'Readmission Risk Status:', 0, 0)
     
-    # Color band based on risk
+    # Colour the badge to match the risk band
     if risk_band == 'High':
         r, g, b = 220, 38, 38
     elif risk_band == 'Moderate':
@@ -72,7 +71,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     
     pdf.ln(10)
     
-    # Clinical Metrics
+    # Key clinical figures from this encounter
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 10, 'Clinical Snapshot', 'B', 1, 'L')
     pdf.ln(2)
@@ -86,7 +85,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             pdf.cell(60, 8, f'{label}:', 0, 0)
             pdf.cell(0, 8, str(val), 0, 1)
             
-    # Status Info
+    # Static fields always shown
     pdf.cell(60, 8, 'Admission Status:', 0, 0)
     pdf.cell(0, 8, 'Stable', 0, 1)
     pdf.cell(60, 8, 'Clinical Provider:', 0, 0)
@@ -94,7 +93,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             
     pdf.ln(10)
     
-    # Risk Drivers
+    # Diverging bar chart of top feature contributions
     if explanation_df is not None and not explanation_df.empty and 'Contribution' in explanation_df.columns:
         pdf.set_font('Arial', 'B', 12)
         pdf.cell(0, 10, 'Interpretability: Key Risk Drivers', 'B', 1, 'L')
@@ -150,7 +149,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
         pdf.set_text_color(0, 0, 0)
         pdf.ln(6)
 
-    # Polypharmacy Safety Check (Data directly passed from UI for 1:1 match)
+    # Polypharmacy safety section — data passed directly from the UI
     alerts = interaction_alerts or []
     
     if alerts:
@@ -159,7 +158,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
         pdf.cell(0, 10, 'FDA Polypharmacy Safety Check', 'B', 1, 'L')
         pdf.ln(4)
         for alert in alerts:
-            # Set dynamic colour based on risk level
+            # Colour varies by severity level
             if "SEVERE" in alert["level"]:
                 pdf.set_text_color(159, 18, 57)
             elif "HIGH" in alert["level"]:
@@ -169,7 +168,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             else:
                 pdf.set_text_color(5, 150, 105)
             
-            # Strip emojis for strict latin-1 PDF compatibility
+            # Strip emojis for latin-1 PDF compatibility
             clean_lvl = alert["level"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
             clean_msg = alert["message"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
             
@@ -180,7 +179,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             pdf.multi_cell(0, 5, clean_msg)
             pdf.ln(3)
 
-    # Case History
+    # Chronological log of clinician interventions
     if history_df is not None and not history_df.empty:
         pdf.set_font('Arial', 'B', 12)
         pdf.set_text_color(0, 0, 0)
@@ -211,7 +210,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
     buffer = io.BytesIO()
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, str):
-        # fpdf returns latin-1 encoded string in some versions
+        # fpdf returns a latin-1 encoded string in older versions
         buffer.write(pdf_output.encode('latin-1'))
     else:
         buffer.write(pdf_output)

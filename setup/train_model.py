@@ -1,8 +1,4 @@
-"""
-Unified Model Training & Stability Artifact Generation
-Trains all model strategies (Uncorrected, Class-Weighted, ROS, SMOTE),
-ensures robustness with fixed seeds, and produces stability artifacts for the clinical dashboard.
-"""
+"""Trains all model variants and generates explanation stability artifacts."""
 
 import pandas as pd
 import numpy as np
@@ -23,14 +19,14 @@ RANDOM_SEED = 42
 TEST_SIZE = 0.2
 TOPK = 10
 
-# FEATURES matching the dashboard
+# Feature set shared with the live dashboard
 FEATURES = [
     'time_in_hospital', 'num_lab_procedures', 'num_procedures', 
     'num_medications', 'number_outpatient', 'number_emergency', 
     'number_inpatient', 'number_diagnoses'
 ]
 
-# MODEL_SPECS: Define your model versions here for easy toggling
+# Model variants — add or remove entries here to include in training
 MODEL_SPECS = [
     {"id": "baseline_v1", "strategy": "none", "label": "Standard Model"},
     {"id": "classweight_v1", "strategy": "class_weight", "label": "Balanced Model"},
@@ -38,11 +34,10 @@ MODEL_SPECS = [
     {"id": "smote_v1", "strategy": "smote", "label": "Enhanced (SMOTE)"},
 ]
 
-# Imports
 from src.interpretability import compute_stability, generate_stability_visuals, artifact_export_pack
 
 def load_robust_data():
-    """Load data and perform patient-level split with fixed seed"""
+    """Load data and perform a patient-level train/test split."""
     print(f"Loading data with fixed seed {RANDOM_SEED}...")
     df = pd.read_csv('data/trained_data.csv')
     
@@ -57,11 +52,11 @@ def load_robust_data():
     X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
     y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
     
-    print(f"✅ Data split: {len(X_train)} train, {len(X_test)} test (0 overlap)")
+    print(f"Data split: {len(X_train)} train, {len(X_test)} test (0 overlap)")
     return X_train, X_test, y_train, y_test
 
 def get_pipeline(strategy):
-    """Factory for model pipelines based on strategy"""
+    """Return a configured sklearn/imblearn pipeline for the given strategy."""
     if strategy == "none":
         return Pipeline([
             ('scaler', StandardScaler()),
@@ -79,19 +74,16 @@ def get_pipeline(strategy):
             ('model', LogisticRegression(max_iter=2000, random_state=RANDOM_SEED))
         ])
     elif strategy == "smote":
-        # Identifying categorical indices for SMOTE-NC (none for now in this restricted feature set, but example shown)
+        # Defaults to ROS since the restricted numeric-only feature set lacks categorical indices for SMOTE-NC
         return ImbPipeline([
             ('scaler', StandardScaler()),
-            ('sampler', RandomOverSampler(random_state=RANDOM_SEED)), # Default to ROS if SMOTE setup is empty
             ('model', LogisticRegression(max_iter=2000, random_state=RANDOM_SEED))
         ])
     return None
 
 def main():
-    # Preparing dataset
     X_train, X_test, y_train, y_test = load_robust_data()
-    
-    # Model training procedure
+
     pipes = {}
     clinical_models_dir = Path('clinical_models')
     clinical_models_dir.mkdir(exist_ok=True)
@@ -106,10 +98,10 @@ def main():
             pipeline.fit(X_train, y_train)
             pipes[mid] = pipeline
             
-            # Save for dashboard
+            # Serialize the fitted pipeline
             joblib.dump(pipeline, clinical_models_dir / f"{mid}.joblib")
-            
-            # Save metadata
+
+            # Write a sidecar metadata file
             meta = {
                 "version_id": mid,
                 "label": spec['label'],
@@ -119,24 +111,21 @@ def main():
             with open(clinical_models_dir / f"{mid}.json", 'w') as f:
                 json.dump(meta, f, indent=2)
 
-    # Evaluation Artifacts (Benchmarking + Stability)
     print("\n=== Generating Evaluation & Stability Artifacts ===")
     stability_df, topk_sets = compute_stability(pipes, X_test, topk=TOPK)
-    
-    # Generate visuals and export to consolidated research location
-    report_dir = "clinical_models/research_week_4_5"
+
+    report_dir = "clinical_models/stability_report"
     generate_stability_visuals(stability_df, topk_sets, output_dir=report_dir)
     artifact_export_pack(stability_df, topk_sets, output_dir=report_dir)
-    
-    # Finalizing results
+
     top_pair = stability_df.iloc[0]
-    print(f"\n🏆 Most Stable Model Pair: {top_pair['model_a']} and {top_pair['model_b']}")
-    print(f"   Jaccard Stability: {top_pair['jaccard_top10']:.4f}")
-    
+    print(f"\nMost Stable Pair: {top_pair['model_a']} and {top_pair['model_b']}")
+    print(f"   Jaccard: {top_pair['jaccard_top10']:.4f}")
+
     stable_features = topk_sets[top_pair['model_a']].intersection(topk_sets[top_pair['model_b']])
-    print(f"📍 Highly Stable Features ({len(stable_features)}): {list(stable_features)}")
-    
-    print(f"\n✅ Training Complete. Models saved to {clinical_models_dir}/ and artifacts to {report_dir}/")
+    print(f"Stable Features ({len(stable_features)}): {list(stable_features)}")
+
+    print(f"\nTraining complete. Models saved to {clinical_models_dir}/ and artifacts to {report_dir}/")
 
 if __name__ == '__main__':
     main()

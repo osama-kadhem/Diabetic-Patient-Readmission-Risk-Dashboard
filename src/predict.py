@@ -2,15 +2,13 @@ import pandas as pd
 import numpy as np
 import warnings
 
-# The pipeline dictates the expected features at runtime.
-
-# Columns that would constitute target leakage if present in the input
+# Target columns excluded to prevent data leakage
 _LEAKY_COLUMNS = ['readmitted', 'readmitted_binary', 'label', 'target']
 
 def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
     df_pred = df.copy()
 
-    # Strip target column if uploaded with the data
+    # Drop any ground-truth labels if the user uploaded a labelled dataset
     leaky_found = [c for c in _LEAKY_COLUMNS if c in df_pred.columns]
     if leaky_found:
         warnings.warn(
@@ -21,7 +19,7 @@ def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
         )
         df_pred = df_pred.drop(columns=leaky_found)
 
-    # Require ALL expected features
+    # Pull the feature list the pipeline was trained on
     try:
         expected_cols = list(pipeline.feature_names_in_)
     except AttributeError:
@@ -36,18 +34,14 @@ def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
             f"Missing features for prediction: {missing_cols}. "
             "Predictions may be unreliable if imputed.", UserWarning, stacklevel=2
         )
-        # Attempt to use the existing columns; let sklearn handle/fail imputation if needed
-        # But we must pass exactly expected_cols
-        pass
 
     try:
-        # Pipeline requires all expected training features
         probs = pipeline.predict_proba(df_pred[expected_cols])[:, 1]
         df_pred['risk_probability'] = probs
     except KeyError as e:
         raise RuntimeError(f"Prediction failed with missing columns. Error: {str(e)}") from e
 
-    # Risk band assignment
+    # Assign a risk band label using the two operating thresholds
     conditions = [
         (df_pred['risk_probability'] >= threshold_high),
         (df_pred['risk_probability'] >= threshold_medium) & (df_pred['risk_probability'] < threshold_high),

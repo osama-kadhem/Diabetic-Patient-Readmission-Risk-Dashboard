@@ -8,8 +8,6 @@ def _band(risk_score: float) -> str:
         return "MODERATE"
     return "LOW"
 
-# Public entry point
-
 def generate_discharge_plan(
     patient_row: dict,
     risk_score: float,
@@ -17,23 +15,19 @@ def generate_discharge_plan(
     model_id: str,
     interaction_alerts: list[dict] = None,
 ) -> str:
-    """
-    Generate a patient-facing discharge plan in plain English.
-    Tone, urgency, diet, exercise, and follow-up all adapt to the risk band.
-    No external API required.
-    """
+    """Build a plain-English discharge plan whose tone and advice adapt to the patient's risk band."""
     def g(key: str, default: str = "unknown") -> str:
         val = patient_row.get(key, default)
         return str(val) if val is not None else default
 
-    band      = _band(risk_score)
+    band = _band(risk_score)
     inpatient = int(g("number_inpatient", "0") or 0)
-    change    = g("change",  "No")
-    insulin   = g("insulin", "No")
-    a1c       = g("A1Cresult",     "unknown")
-    max_glu   = g("max_glu_serum", "unknown")
+    change = g("change", "No")
+    insulin = g("insulin", "No")
+    a1c = g("A1Cresult", "unknown")
+    max_glu = g("max_glu_serum", "unknown")
 
-    # Opening -- tone varies by band
+    # Intro paragraph — severity sets the tone
     if band == "LOW":
         opening = (
             "**Good news!** Based on your recent visit, your chances of needing to "
@@ -52,12 +46,11 @@ def generate_discharge_plan(
         opening = (
             "**Please read this carefully.** Your results suggest a higher chance of "
             "needing to return to hospital in the next month. "
-            "This does not mean something will definitely go wrong - but it does mean "
+            "This does not mean something will definitely go wrong but it does mean "
             "the team wants you to be extra careful at home and to get seen quickly "
             "if anything feels off."
         )
 
-    # Drivers in plain English
     _plain = {
         "number_inpatient":   "how often you have been in hospital recently",
         "time_in_hospital":   "how long this stay was",
@@ -79,7 +72,7 @@ def generate_discharge_plan(
         driver_lines.append(f"- {label.capitalize()}")
     drivers_md = "\n".join(driver_lines) if driver_lines else "- Your overall health during this visit"
 
-    # Diet
+    # Build the top-3 driver list in plain English
     diet_tips  = _patient_diet_advice(top_features, patient_row)
     if band == "LOW":
         diet_intro = "Your diet is on the right track. Keep these habits going:"
@@ -89,7 +82,7 @@ def generate_discharge_plan(
         diet_intro = "Diet is one of the most important things you can control right now:"
     diet_md = "\n".join(f"- {t}" for t in diet_tips)
 
-    # Exercise
+    # Exercise intro line also adapts to risk severity
     exercise_tips = _patient_exercise_advice(top_features, patient_row)
     if band == "LOW":
         exercise_intro = "You are in a good position to stay active. Aim for:"
@@ -99,7 +92,7 @@ def generate_discharge_plan(
         exercise_intro = "Start very gently - even a little movement each day helps:"
     exercise_md = "\n".join(f"- {t}" for t in exercise_tips)
 
-    # Medications
+    # Only show the medication section if something changed or a DDI was flagged
     alerts = interaction_alerts if interaction_alerts is not None else []
     has_alert = any(bad in a["level"] for a in alerts for bad in ["RISK", "DDI", "ALERT"])
     
@@ -132,7 +125,7 @@ def generate_discharge_plan(
                 if any(bad in a["level"] for bad in ["RISK", "DDI", "ALERT"]):
                     med_section += f"> - **{a['level']}**: {a['message']}\n"
 
-    # Next appointment
+    # Follow-up window is tighter for high-risk and repeat admitters
     if band == "HIGH" or inpatient >= 2:
         appt = (
             "You should be seen **within 7 days** of leaving hospital. "
@@ -146,7 +139,7 @@ def generate_discharge_plan(
             "Your GP will likely be in touch."
         )
 
-    # Blood sugar note
+    # Flag out-of-range labs so the patient knows to act
     glucose_note = ""
     if a1c in (">8", ">7"):
         glucose_note += (
@@ -159,7 +152,7 @@ def generate_discharge_plan(
             "Check it at home every day and record the numbers."
         )
         
-    # Clinical recommendations based on risk band
+    # Clinical action summary for the clinician section of the letter
     rec_md = ""
     if band == "HIGH":
         rec_md = (
@@ -174,7 +167,7 @@ def generate_discharge_plan(
     else:
         rec_md = "- **Standard Pathway:** No additional interventions needed.\n"
 
-    # When to return
+    # Fixed red-flag list; high/moderate risk gets an extra general warning
     return_signs = [
         "Chest pain or tightness that does not go away",
         "Difficulty breathing while resting",
@@ -254,13 +247,11 @@ def generate_discharge_plan(
 # Top-feature extraction helpers
 
 def get_lr_top_features(pipeline, patient_df, feature_names: list[str], topk: int = 5) -> list[str]:
-    """
-    Extract top contributing features for an LR pipeline via |coef × scaled value|.
-    """
+    """Return the top-k most influential features for an LR pipeline using |coef × scaled value|."""
     import numpy as np
     try:
         preprocessor = pipeline.named_steps.get("preprocessor") or pipeline.named_steps.get("scaler")
-        clf          = pipeline.named_steps.get("classifier")    or pipeline.named_steps.get("model")
+        clf = pipeline.named_steps.get("classifier") or pipeline.named_steps.get("model")
         if preprocessor is None or clf is None:
             return feature_names[:topk]
         X_t = preprocessor.transform(patient_df)
@@ -277,9 +268,7 @@ def get_lr_top_features(pipeline, patient_df, feature_names: list[str], topk: in
         return feature_names[:topk]
 
 def get_xgb_top_features(pipeline, patient_df, feature_names: list[str], topk: int = 5) -> list[str]:
-    """
-    Extract top features from an XGBoost pipeline via built-in feature_importances_.
-    """
+    """Return the top-k most influential features for an XGBoost pipeline using built-in importances."""
     import numpy as np
     try:
         clf = pipeline.named_steps.get("classifier") or pipeline.named_steps.get("model")
@@ -298,7 +287,7 @@ def get_xgb_top_features(pipeline, patient_df, feature_names: list[str], topk: i
 
 # Patient-facing advice builders
 
-# Maps feature names → plain-English diet tips
+# Feature → plain-English diet tip
 _DIET_TIPS: dict[str, str] = {
     "number_inpatient": (
         "You have been in hospital more than once recently. "
@@ -340,7 +329,7 @@ _DIET_TIPS: dict[str, str] = {
     ),
 }
 
-# Maps feature names → plain-English exercise tips
+# Feature → plain-English exercise tip
 _EXERCISE_TIPS: dict[str, str] = {
     "number_inpatient": (
         "Start slowly after your hospital stay. Begin with 10-minute gentle walks at home and build "
@@ -436,11 +425,11 @@ class _PatientLetterPDF:
     """Thin wrapper - builds a patient discharge letter using fpdf."""
 
     # Colour palette
-    _BLUE   = (3,  105, 161)
-    _GREEN  = (5,  150, 105)
-    _ORANGE = (217, 119,  6)
-    _RED    = (220,  38, 38)
-    _SLATE  = (30,   41, 59)
+    _BLUE   = (3, 105, 161)
+    _GREEN  = (5, 150, 105)
+    _ORANGE = (217, 119, 6)
+    _RED    = (220, 38, 38)
+    _SLATE  = (30, 41, 59)
     _GREY   = (100, 116, 139)
     _LIGHT  = (241, 245, 249)
 
@@ -477,8 +466,6 @@ class _PatientLetterPDF:
         self._pdf = _PDF()
         self._pdf.set_margins(15, 20, 15)
         self._pdf.set_auto_page_break(auto=True, margin=20)
-
-    # Helpers
 
     @staticmethod
     def _s(text: str) -> str:
@@ -524,8 +511,6 @@ class _PatientLetterPDF:
             self._pdf.multi_cell(0, 6, self._s(f"*  {item}"))
             self._pdf.ln(1)
         self._pdf.ln(2)
-
-    # Public build
 
     def build(
         self,
@@ -742,7 +727,6 @@ class _PatientLetterPDF:
             f"Risk assessment model: {model_id}."
         )
 
-        # Return bytes buffer
         buf = __import__("io").BytesIO()
         result = pdf.output(dest="S")
         if isinstance(result, str):
@@ -760,31 +744,7 @@ def generate_patient_discharge_pdf(
     model_id: str,
     interaction_alerts: list[dict] = None,
 ) -> "io.BytesIO":
-    """
-    Generate a patient-facing discharge letter as a PDF.
-
-    Written in plain English with personalised:
-      - Diet and nutrition advice
-      - Exercise recommendations
-      - Medication adherence reminders
-      - 'When to return to hospital' red-flag list
-      - Next appointment guidance
-
-    All advice is derived from the top risk features and patient values -
-    no external API required.
-
-    Parameters
-    ----------
-    patient_id    : str   Identifier shown in the letter header.
-    patient_row   : dict  Patient feature values.
-    risk_score    : float Raw probability from the active model (0–1).
-    top_features  : list  Feature names ranked by importance (up to 5 used).
-    model_id      : str   Active model identifier (shown in footnote).
-
-    Returns
-    -------
-    io.BytesIO  PDF byte stream ready for st.download_button().
-    """
+    """Build and return the patient discharge letter as a PDF byte stream."""
     return _PatientLetterPDF().build(
         patient_id   = patient_id,
         patient_row  = patient_row,

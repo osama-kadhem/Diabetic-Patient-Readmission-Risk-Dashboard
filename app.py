@@ -1,7 +1,6 @@
 import streamlit as st
 
-# MUST be first command
-st.set_page_config(
+st.set_page_config(  # must be the first Streamlit call
     page_title="Clinical Dashboard - Readmission Risk",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -114,16 +113,14 @@ db.init_db()
 
 
 
-# Clinical Dashboard Style
-
+# CSS overrides - locks the light theme and sets typography
 st.markdown("""
 <style>
-    /* Professional Document Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap');
 
-    /* ==== FORCE LIGHT THEME: Override ALL Streamlit dark-mode injections ==== */
+    /* Light theme lock - Streamlit can drift to dark mode without this */
 
-    /* Main app shell */
+    /* Main app background and text */
     .stApp,
     .stApp > header,
     [data-testid="stAppViewContainer"],
@@ -136,7 +133,7 @@ st.markdown("""
         color: #1e293b !important;
     }
 
-    /* Every chunk of markdown text */
+    /* Text colour for markdown elements */
     .stMarkdown, .stMarkdown p, .stMarkdown span,
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
     .stMarkdown h4, .stMarkdown h5, .stMarkdown li,
@@ -179,7 +176,7 @@ st.markdown("""
         font-size: 0.85rem !important;
     }
 
-    /* Containers / Cards */
+    /* Cards */
     [data-testid="stVerticalBlockBorderWrapper"] > div > div {
         background-color: #ffffff !important;
         border-radius: 4px !important;
@@ -246,14 +243,14 @@ MODEL_REGISTRY = {
   "lr_ros_w6":               "clinical_models/candidate_models/lr_ros_w6.joblib"
 }
 
-# Human-readable model labels for UI
+# Labels shown in the sidebar dropdown
 MODEL_LABELS = {
   "lr_classweight_w7_final": "Calibrated LR (FINAL - Default)",
-  "lr_classweight_w7":       "LR Class-Weight (Week 7 Raw)",
-  "lr_ros_w6":               "LR ROS (Week 6 Baseline)"
+  "lr_classweight_w7":       "LR Class-Weight (Uncalibrated)",
+  "lr_ros_w6":               "LR Random Over-Sampling (Baseline)"
 }
 
-# Increment to force Streamlit to discard stale cached pipelines.
+# Bump this if model files change and the Streamlit cache needs clearing
 _CACHE_VERSION = 5
 
 if 'authenticated' not in st.session_state:

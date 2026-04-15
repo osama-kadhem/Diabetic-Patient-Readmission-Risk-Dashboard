@@ -1,7 +1,4 @@
-"""
-Live Clinical API Drug-Drug Interaction (DDI) Checker.
-Queries the real U.S. Government OpenFDA database dynamically.
-"""
+"""Drug-drug interaction checker using the OpenFDA drug/label API."""
 import requests
 import warnings
 import streamlit as st
@@ -9,11 +6,10 @@ import streamlit as st
 @st.cache_data(show_spinner=False, ttl=3600)
 def check_drug_interactions(medications: dict) -> list[dict]:
     """
-    Dynamically checks the OpenFDA active clinical API to see if there are 
-    registered label contraindications between the patient's active drugs.
+    Cross-references the patient's active diabetes medications against the
+    OpenFDA drug/label API to detect registered contraindications.
     """
     active_drugs = []
-    # Relevant dataset drugs that FDA understands 
     valid_fda_drugs = ['insulin', 'metformin', 'glipizide', 'glyburide', 'pioglitazone', 'rosiglitazone']
     
     for k, v in medications.items():
@@ -25,6 +21,7 @@ def check_drug_interactions(medications: dict) -> list[dict]:
     if len(active_drugs) < 2:
         return alerts
         
+    # Cap at 3 pairs to stay within API rate limits
     pairs_checked = 0
     api_failed = False
     
@@ -36,7 +33,6 @@ def check_drug_interactions(medications: dict) -> list[dict]:
             drug1 = active_drugs[i]
             drug2 = active_drugs[j]
             
-            # Query the OpenFDA API
             query = f'search=openfda.generic_name:"{drug1}"+AND+drug_interactions:"{drug2}"&limit=1'
             url = f"https://api.fda.gov/drug/label.json?{query}"
             
@@ -63,7 +59,7 @@ def check_drug_interactions(medications: dict) -> list[dict]:
             pairs_checked += 1
 
     if api_failed and not alerts:
-        # Fallback to local heuristic if there's no internet or FDA rate limits us
+        # Local heuristic fallback
         has_insulin = 'insulin' in active_drugs
         has_sulfonylurea = 'glipizide' in active_drugs or 'glyburide' in active_drugs
         
@@ -74,5 +70,4 @@ def check_drug_interactions(medications: dict) -> list[dict]:
                 "color": "#d97706"
             })
 
-    # Return empty list if no DDIs found - UI handles the clean message
     return alerts

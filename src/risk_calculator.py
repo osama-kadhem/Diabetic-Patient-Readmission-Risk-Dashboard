@@ -1,10 +1,4 @@
-"""
-Risk Calculator Module
-
-Handles manifest loading, model loading, dynamic form rendering,
-risk-band classification, and plain-English interpretation for the
-Individual Risk Predictor tab.
-"""
+"""Manifest loading, model inference, form rendering and risk interpretation for the Individual Risk Predictor."""
 
 from __future__ import annotations
 
@@ -18,11 +12,11 @@ import streamlit as st
 
 MANIFEST_PATH = "clinical_models/final_model/feature_manifest.json"
 
-# Calibrated operating thresholds (Platt-scaled Logistic Regression)
-THRESHOLD_F1     = 0.514   # Best-F1 operating point
-THRESHOLD_HR     = 0.604   # High-recall / screening operating point
+# Decision thresholds tuned on the validation set (Platt-scaled LR)
+THRESHOLD_F1 = 0.514   # Best-F1 operating point
+THRESHOLD_HR = 0.604   # High-recall screening point
 
-# Human-readable labels for admission_type_id (UCI dataset coding)
+# Admission type codes from the UCI dataset with readable labels
 ADMISSION_TYPE_LABELS: dict[str, str] = {
     "1": "1 - Emergency",
     "2": "2 - Urgent",
@@ -34,7 +28,7 @@ ADMISSION_TYPE_LABELS: dict[str, str] = {
     "8": "8 - Not Mapped",
 }
 
-# Human-readable labels for discharge_disposition_id (UCI dataset coding)
+# Discharge disposition codes from the UCI dataset with readable labels
 DISCHARGE_LABELS: dict[str, str] = {
     "1":  "1 - Discharged to Home",
     "2":  "2 - Discharged to Short-Term Care",
@@ -64,7 +58,7 @@ DISCHARGE_LABELS: dict[str, str] = {
     "28": "28 - Discharged / Psychiatric Distinct Part Unit",
 }
 
-# Fields that use a label→value mapping selectbox
+# Fields that render as a labelled selectbox rather than a raw value
 _CODED_FIELDS = {
     "admission_type_id":      ADMISSION_TYPE_LABELS,
     "discharge_disposition_id": DISCHARGE_LABELS,
