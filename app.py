@@ -253,27 +253,20 @@ MODEL_LABELS = {
 # Bump this if model files change and the Streamlit cache needs clearing
 _CACHE_VERSION = 5
 
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-if 'user' not in st.session_state:
-    st.session_state.user = None
-if 'uploaded_data' not in st.session_state:
-    st.session_state.uploaded_data = None
-if 'predictions' not in st.session_state:
-    st.session_state.predictions = None
-if 'selected_patient' not in st.session_state:
-    st.session_state.selected_patient = None
-if 'pipeline' not in st.session_state:
-    st.session_state.pipeline = None
-if 'model_version' not in st.session_state:
-    st.session_state.model_version = "lr_classweight_w7_final"
-if 'risk_reset_key' not in st.session_state:
-    st.session_state.risk_reset_key = 0
-if 'risk_result' not in st.session_state:
-    st.session_state.risk_result = None
-# Discharge plan state
-if 'discharge_plan_text' not in st.session_state:
-    st.session_state.discharge_plan_text = None
+_session_defaults = {
+    'authenticated': False,
+    'user': None,
+    'uploaded_data': None,
+    'predictions': None,
+    'selected_patient': None,
+    'pipeline': None,
+    'model_version': "lr_classweight_w7_final",
+    'risk_reset_key': 0,
+    'risk_result': None,
+    'discharge_plan_text': None,
+}
+for _k, _v in _session_defaults.items():
+    st.session_state.setdefault(_k, _v)
 
 def check_model_integrity(file_path):
     sha256_hash = hashlib.sha256()

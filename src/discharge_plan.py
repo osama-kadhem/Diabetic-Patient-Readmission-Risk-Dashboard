@@ -52,24 +52,24 @@ def generate_discharge_plan(
         )
 
     _plain = {
-        "number_inpatient":   "how often you have been in hospital recently",
-        "time_in_hospital":   "how long this stay was",
-        "num_medications":    "the number of medications you take",
-        "number_emergency":   "past emergency visits",
-        "number_outpatient":  "your outpatient visits",
+        "number_inpatient": "how often you have been in hospital recently",
+        "time_in_hospital": "how long this stay was",
+        "num_medications": "the number of medications you take",
+        "number_emergency": "past emergency visits",
+        "number_outpatient": "your outpatient visits",
         "num_lab_procedures": "the number of blood tests during this stay",
-        "num_procedures":     "the number of procedures performed",
-        "number_diagnoses":   "how many health conditions are being managed",
-        "a1cresult":          "your long-term blood sugar (HbA1c)",
-        "insulin":            "changes to your insulin",
-        "change":             "medication changes during this admission",
-        "diabetesmed":        "your diabetes medication",
-        "max_glu_serum":      "your blood glucose levels during the stay",
+        "num_procedures": "the number of procedures performed",
+        "number_diagnoses": "how many health conditions are being managed",
+        "a1cresult": "your long-term blood sugar (HbA1c)",
+        "insulin": "changes to your insulin",
+        "change": "medication changes during this admission",
+        "diabetesmed": "your diabetes medication",
+        "max_glu_serum": "your blood glucose levels during the stay",
     }
-    driver_lines = []
-    for f in top_features[:3]:
-        label = _plain.get(f.replace(" ", "_").lower(), f.replace("_", " "))
-        driver_lines.append(f"- {label.capitalize()}")
+    driver_lines = [
+        f"- {_plain.get(f.replace(' ', '_').lower(), f.replace('_', ' ')).capitalize()}"
+        for f in top_features[:3]
+    ]
     drivers_md = "\n".join(driver_lines) if driver_lines else "- Your overall health during this visit"
 
     # Build the top-3 driver list in plain English

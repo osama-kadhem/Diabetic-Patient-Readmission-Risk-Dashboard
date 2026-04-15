@@ -3,6 +3,7 @@ import numpy as np
 import shap
 import matplotlib.pyplot as plt
 import os
+import itertools
 from pathlib import Path
 
 def compute_stability(pipes, X_test, topk=10):
@@ -43,21 +44,16 @@ def compute_stability(pipes, X_test, topk=10):
         topk_sets[f"{model_id}_df"] = df_topk
 
     model_ids = list(pipes.keys())
-    for i in range(len(model_ids)):
-        for j in range(i + 1, len(model_ids)):
-            m1, m2 = model_ids[i], model_ids[j]
-            s1, s2 = topk_sets[m1], topk_sets[m2]
-
-            overlap = len(s1.intersection(s2))
-            union = len(s1.union(s2))
-            jaccard = overlap / union if union > 0 else 0
-
-            stability_results.append({
-                'model_a': m1,
-                'model_b': m2,
-                'top10_overlap': overlap,
-                'jaccard_top10': jaccard
-            })
+    for m1, m2 in itertools.combinations(model_ids, 2):
+        s1, s2 = topk_sets[m1], topk_sets[m2]
+        overlap = len(s1 & s2)
+        union = len(s1 | s2)
+        stability_results.append({
+            'model_a': m1,
+            'model_b': m2,
+            'top10_overlap': overlap,
+            'jaccard_top10': overlap / union if union > 0 else 0
+        })
 
     stability_df = pd.DataFrame(stability_results).sort_values(by='jaccard_top10', ascending=False)
 
