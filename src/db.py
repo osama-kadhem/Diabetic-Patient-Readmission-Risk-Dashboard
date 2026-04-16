@@ -10,6 +10,7 @@ KEY_PATH = Path("data/.clinical_key")
 
 
 def get_or_create_key():
+    # Generate the encryption key on first run, then reuse it each time
     if not KEY_PATH.exists():
         key = Fernet.generate_key()
         with open(KEY_PATH, "wb") as f:
@@ -64,7 +65,7 @@ def init_db():
                 threshold_used   REAL    NOT NULL
             );
 
-            -- Indexes: eliminate full-table scans on every lookup
+            -- Indexes for common query patterns
             CREATE INDEX IF NOT EXISTS idx_logs_patient
                 ON logs (patient_id);
 
@@ -90,6 +91,7 @@ def log_predictions_batch(prediction_list):
     if not prediction_list:
         return
 
+    # Build a list of tuples so we can insert everything in one database call
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     data = [
         (timestamp, str(p[0]), p[1], float(p[2]), int(p[3]), float(p[4]))

@@ -29,7 +29,7 @@ from src.interactions import check_drug_interactions
 
 @st.cache_data
 def get_local_explanation(pipeline_hash, _pipeline, patient_row):
-    """Calculates linear feature contributions or tree importances for a patient."""
+    """Compute per-feature contributions for a patient using the active pipeline."""
     try:
         try:
             expected_cols = list(_pipeline.feature_names_in_)
@@ -103,7 +103,6 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
             'Contribution': contributions,
         }).sort_values(by='Contribution', key=abs, ascending=False)
         
-    # Return top 10 impactful features
         return df_exp.head(10)
 
     except Exception as e:
@@ -113,12 +112,10 @@ db.init_db()
 
 
 
-# CSS overrides - locks the light theme and sets typography
+# Custom CSS - forces light theme and sets the font
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap');
-
-    /* Light theme lock - Streamlit can drift to dark mode without this */
 
     /* Main app background and text */
     .stApp,
@@ -243,16 +240,16 @@ MODEL_REGISTRY = {
   "lr_ros_w6":               "clinical_models/candidate_models/lr_ros_w6.joblib"
 }
 
-# Labels shown in the sidebar dropdown
 MODEL_LABELS = {
   "lr_classweight_w7_final": "Calibrated LR (FINAL - Default)",
   "lr_classweight_w7":       "LR Class-Weight (Uncalibrated)",
   "lr_ros_w6":               "LR Random Over-Sampling (Baseline)"
 }
 
-# Bump this if model files change and the Streamlit cache needs clearing
+# Cache-bust version
 _CACHE_VERSION = 5
 
+# Set up session state keys so they always exist
 _session_defaults = {
     'authenticated': False,
     'user': None,
@@ -311,6 +308,7 @@ def login_screen():
     
     with st.container(border=True):
         if st.button("LOGIN", type="primary", use_container_width=True):
+            # Mark the session as authenticated and log the event
             st.session_state.authenticated = True
             st.session_state.user = "DR. OSAMA SALEH"
             db.log_audit(st.session_state.user, "LOGIN")
@@ -336,7 +334,7 @@ st.markdown(f"""
 
 @st.cache_resource
 def load_pipeline(version, _cache_version=_CACHE_VERSION):
-    """Load a sklearn Pipeline. _cache_version busts stale Streamlit caches."""
+    """Load the active model pipeline."""
     try:
         model_path = Path(MODEL_REGISTRY[version])
         
@@ -362,6 +360,7 @@ def load_pipeline(version, _cache_version=_CACHE_VERSION):
 
 @st.cache_data
 def load_and_validate_data(file_obj):
+    # Cache the raw CSV so re-uploads don't re-read from disk
     df = pd.read_csv(file_obj)
     return df
 
@@ -486,8 +485,7 @@ with st.sidebar:
             
             if st.session_state.pipeline is not None:
                 with st.spinner("Analyzing..."):
-                    # Drop any target/label columns if present in the upload
-                    # (expected when using the UCI dataset).
+                    # Drop target columns to prevent leakage
                     _TARGET_COLS = ['readmitted', 'readmitted_binary', 'label', 'target']
                     _leaky = [c for c in _TARGET_COLS
                               if c in st.session_state.uploaded_data.columns]
@@ -526,9 +524,9 @@ with st.sidebar:
             st.error("Please import data first.")
 
     st.caption("🟢 **System Online**")
-    st.caption(f"v2.5.0 | Build: {pd.Timestamp.now().strftime('%y%m%d')}")
+    st.caption(f"v1.0 | {pd.Timestamp.now().strftime('%Y-%m-%d')}")
 
-# Main content area - always show 4 tabs; tabs 1-3 require uploaded data
+# Four main tabs - first three need data before they're useful
 tab1, tab2, tab3, tab4 = st.tabs(["OVERVIEW", "PRIORITIZATION QUEUE", "PATIENT DOSSIER", "RISK PREDICTOR"])
 
 if st.session_state.uploaded_data is None:
@@ -830,7 +828,6 @@ if st.session_state.uploaded_data is not None:
                 active_pipe = load_pipeline(st.session_state.model_version)
             
             if active_pipe:
-                # Hash the pipeline object for caching
                 pipeline_hash = joblib.hash(active_pipe)
                 exp_df = get_local_explanation(pipeline_hash, active_pipe, patient_row)
 
@@ -1160,18 +1157,24 @@ with tab4:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", UserWarning)
                             
-                            # Pad missing features for the final model
                             try:
                                 expected_cols = list(risk_pipeline.feature_names_in_)
                                 for col in expected_cols:
                                     if col not in patient_df.columns:
-                                        if col == 'num_lab_procedures': patient_df[col] = 44.0
-                                        elif col == 'num_procedures': patient_df[col] = 1.0
-                                        elif col == 'number_diagnoses': patient_df[col] = 9.0
-                                        elif col.startswith('diag_'): patient_df[col] = "250.0"
-                                        elif col in ['race', 'gender']: patient_df[col] = "Unknown"
-                                        elif col == 'admission_source_id': patient_df[col] = "7"
-                                        else: patient_df[col] = "No"
+                                        if col == 'num_lab_procedures':
+                                            patient_df[col] = 44.0
+                                        elif col == 'num_procedures':
+                                            patient_df[col] = 1.0
+                                        elif col == 'number_diagnoses':
+                                            patient_df[col] = 9.0
+                                        elif col.startswith('diag_'):
+                                            patient_df[col] = "250.0"
+                                        elif col in ['race', 'gender']:
+                                            patient_df[col] = "Unknown"
+                                        elif col == 'admission_source_id':
+                                            patient_df[col] = "7"
+                                        else:
+                                            patient_df[col] = "No"
                                 patient_df_ordered = patient_df[expected_cols]
                             except AttributeError:
                                 patient_df_ordered = patient_df

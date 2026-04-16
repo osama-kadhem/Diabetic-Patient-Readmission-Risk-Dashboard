@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import io
 
+# PDF template - header and footer are called automatically by fpdf on each page
 class PatientReport(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 15)
@@ -85,7 +86,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             pdf.cell(60, 8, f'{label}:', 0, 0)
             pdf.cell(0, 8, str(val), 0, 1)
             
-    # Static fields always shown
+    # Fields that don't come from the dataset
     pdf.cell(60, 8, 'Admission Status:', 0, 0)
     pdf.cell(0, 8, 'Stable', 0, 1)
     pdf.cell(60, 8, 'Clinical Provider:', 0, 0)
@@ -207,6 +208,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             pdf.line(10, pdf.get_y(), 200, pdf.get_y())
             pdf.ln(3)
 
+    # Write the PDF bytes into a buffer and return it for download
     buffer = io.BytesIO()
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, str):

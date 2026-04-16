@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import warnings
 
-# Target columns excluded to prevent data leakage
+# Columns stripped before inference to prevent data leakage
 _LEAKY_COLUMNS = ['readmitted', 'readmitted_binary', 'label', 'target']
 
 def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
@@ -19,7 +19,6 @@ def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
         )
         df_pred = df_pred.drop(columns=leaky_found)
 
-    # Pull the feature list the pipeline was trained on
     try:
         expected_cols = list(pipeline.feature_names_in_)
     except AttributeError:
@@ -35,6 +34,7 @@ def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
             "Predictions may be unreliable if imputed.", UserWarning, stacklevel=2
         )
 
+    # Run the model and store the probability of readmission for each row
     try:
         probs = pipeline.predict_proba(df_pred[expected_cols])[:, 1]
         df_pred['risk_probability'] = probs

@@ -1,4 +1,4 @@
-"""Manifest loading, model inference, form rendering and risk interpretation for the Individual Risk Predictor."""
+"""Model loading, patient form rendering, and risk interpretation for the Individual Risk Predictor tab."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ DISCHARGE_LABELS: dict[str, str] = {
     "28": "28 - Discharged / Psychiatric Distinct Part Unit",
 }
 
-# Fields that render as a labelled selectbox rather than a raw value
+# These fields use a human-readable dropdown instead of a raw numeric code
 _CODED_FIELDS = {
     "admission_type_id":      ADMISSION_TYPE_LABELS,
     "discharge_disposition_id": DISCHARGE_LABELS,
@@ -117,7 +117,7 @@ def render_patient_form(manifest: dict, reset_key: int = 0) -> pd.DataFrame:
 
     inputs: dict[str, object] = {}
 
-    # Reorder: most sensitive feature first, least sensitive last
+    # Put the most predictive feature at the top of the form
     primary_num = [f for f in num_order if f == "number_inpatient"]
     secondary_num = [f for f in num_order if f in ["num_lab_procedures", "number_outpatient"]]
     middle_num = [f for f in num_order if f not in primary_num and f not in secondary_num]

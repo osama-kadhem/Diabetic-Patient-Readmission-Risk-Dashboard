@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 def _band(risk_score: float) -> str:
+    # Convert a probability into a plain risk label
     from src.risk_calculator import THRESHOLD_HR, THRESHOLD_F1
     if risk_score >= THRESHOLD_HR:
         return "HIGH"
@@ -16,6 +17,7 @@ def generate_discharge_plan(
     interaction_alerts: list[dict] = None,
 ) -> str:
     """Build a plain-English discharge plan whose tone and advice adapt to the patient's risk band."""
+    # Helper to safely pull a string value from the patient dict
     def g(key: str, default: str = "unknown") -> str:
         val = patient_row.get(key, default)
         return str(val) if val is not None else default
@@ -244,7 +246,7 @@ def generate_discharge_plan(
 
 *This plan is here to help you look after yourself at home. If you are unsure about anything, please ask your care team.*"""
 
-# Top-feature extraction helpers
+# Helpers to extract the most important features for a given model type
 
 def get_lr_top_features(pipeline, patient_df, feature_names: list[str], topk: int = 5) -> list[str]:
     """Return the top-k most influential features for an LR pipeline using |coef × scaled value|."""
@@ -287,7 +289,6 @@ def get_xgb_top_features(pipeline, patient_df, feature_names: list[str], topk: i
 
 # Patient-facing advice builders
 
-# Feature → plain-English diet tip
 _DIET_TIPS: dict[str, str] = {
     "number_inpatient": (
         "You have been in hospital more than once recently. "
@@ -329,7 +330,6 @@ _DIET_TIPS: dict[str, str] = {
     ),
 }
 
-# Feature → plain-English exercise tip
 _EXERCISE_TIPS: dict[str, str] = {
     "number_inpatient": (
         "Start slowly after your hospital stay. Begin with 10-minute gentle walks at home and build "
