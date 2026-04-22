@@ -69,19 +69,27 @@ Plans are exportable as professional **PDF letters** via `fpdf`, ready for clini
 demo/
 ├── app.py                  # Primary clinician-facing Streamlit interface
 ├── clinical_models/        # Validated ML pipelines and experiment artifacts
-│   ├── final_model/        # Final calibrated model, manifest, and validation data
-│   └── ...                 # Iterative experiment tracking directories
-├── data/                   # Patient cohort CSVs, SQLite audit DB, encryption key
+│   ├── final_model/        # Final calibrated model, manifest, and SHA-256 hash
+│   ├── candidate_models/   # Baseline ROS model for comparison
+│   └── research_models/    # Uncalibrated class-weight model (experiment artifact)
+├── notebook/               # Jupyter development notebook and training data
+│   ├── notebook.ipynb      # End-to-end model development and evaluation notebook
+│   ├── diabetic_data.csv   # UCI Diabetes 130-US Hospitals full dataset (70k rows)
+│   └── IDS_mapping.csv     # Admission/discharge code label mappings
+├── test_data/              # Held-out evaluation dataset
+│   └── test_data.csv       # Clean test split (unseen during training)
+├── data/                   # Runtime data directory (gitignored)
+│   └── .clinical_key       # Auto-generated Fernet encryption key (never committed)
 ├── setup/                  # Environment preparation and training scripts
 │   ├── requirements.txt    # Pinned dependency index
 │   └── train_model.py      # Automated baseline training pipeline
 └── src/                    # Core clinical decision logic
     ├── __init__.py          # Package initialiser
     ├── data_validation.py   # Incoming CSV schema validation
-    ├── db.py                # Encrypted SQLite audit and prediction logging
+    ├── db.py                # SQLite audit and prediction logging
     ├── discharge_plan.py    # Rule-based discharge plan and PDF letter generator
     ├── interactions.py      # Live OpenFDA drug-drug interaction engine
-    ├── interpretability.py  # SHAP-based global feature importance (training only)
+    ├── interpretability.py  # Feature importance utilities (training only)
     ├── predict.py           # Batch inference and risk ranking engine
     ├── reports.py           # Patient dossier PDF report generator
     └── risk_calculator.py   # Individual risk predictor forms and interpretation
