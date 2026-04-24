@@ -284,17 +284,29 @@ def check_model_integrity(file_path: str) -> str:
     hash_path  = model_path.with_suffix(".sha256")
     current    = compute_model_hash(file_path)
 
+    # Note: st.session_state is accessed carefully because this function might
+    # run before proper login in some contexts, so user is "SYSTEM" if unknown.
+    # Safely get current user
+    try:
+        user = st.session_state.get('user_name', 'SYSTEM')
+    except Exception:
+        user = "SYSTEM"
+
     if hash_path.exists():
         stored = hash_path.read_text().strip()
         if stored != current:
+            db.log_security_event(user, "MODEL_INTEGRITY_CHECK", str(model_path.name), "FAILED_HASH_MISMATCH")
             raise RuntimeError(
                 f"SHA-256 integrity check FAILED for {model_path.name}. "
                 "The model file may have been tampered with or corrupted. "
                 f"Stored: {stored[:12]}…  Current: {current[:12]}…"
             )
+        else:
+            db.log_security_event(user, "MODEL_INTEGRITY_CHECK", str(model_path.name), "PASSED")
     else:
         # First load — store hash as trust-on-first-use baseline
         hash_path.write_text(current)
+        db.log_security_event(user, "MODEL_INTEGRITY_BASELINE", str(model_path.name), "HASH_CREATED")
 
     return current
 
@@ -454,10 +466,13 @@ with st.sidebar:
         help="Best-F1 maximizes overall accuracy. High-Recall flags more patients for review."
     )
     if "Screening" in op_mode:
+        # High-Recall: lower thresholds intentionally to maximise sensitivity —
+        # more patients are flagged as Moderate/High to minimise missed cases.
         st.session_state.op_mode_name = "screening"
-        st.session_state.tau_high = 0.604
-        st.session_state.tau_mid  = 0.514
+        st.session_state.tau_high = 0.50
+        st.session_state.tau_mid  = 0.35
     else:
+        # Best-F1: validated operating point from calibration curve analysis.
         st.session_state.op_mode_name = "best_f1"
         st.session_state.tau_high = 0.604
         st.session_state.tau_mid  = 0.514

@@ -65,6 +65,18 @@ def init_db():
                 threshold_used   REAL    NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS security_audit (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp    TEXT    NOT NULL,
+                user         TEXT    NOT NULL,
+                event_type   TEXT    NOT NULL,
+                resource_id  TEXT,
+                outcome      TEXT    NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_security_event
+                ON security_audit (event_type);
+
             -- Indexes for common query patterns
             CREATE INDEX IF NOT EXISTS idx_logs_patient
                 ON logs (patient_id);
@@ -112,6 +124,17 @@ def log_audit(user, event_type, resource_id=None):
         conn.execute(
             'INSERT INTO audit (timestamp, user, event_type, resource_id) VALUES (?, ?, ?, ?)',
             (timestamp, user, event_type, resource_id)
+        )
+
+
+def log_security_event(user: str, event_type: str, resource_id: str, outcome: str) -> None:
+    """Record a security-relevant event (e.g. SHA-256 integrity check) to the security_audit table."""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    with _db() as conn:
+        conn.execute(
+            'INSERT INTO security_audit (timestamp, user, event_type, resource_id, outcome) '
+            'VALUES (?, ?, ?, ?, ?)',
+            (timestamp, user, event_type, resource_id, outcome)
         )
 
 
