@@ -23,7 +23,7 @@ Once running locally (see [Quickstart](#-developer-quickstart) below), the dashb
 
 ---
 
-## 🏆 Research-Led Features:
+## 🏆 Research Led Features:
 
 This project extends the core prediction requirement with clinically motivated features designed to demonstrate advanced data integration and professional implementation.
 
@@ -43,7 +43,7 @@ The Overview tab renders an interactive **risk distribution histogram** with rea
 
 ### 📋 4. Personalised Discharge Planning
 
-A rule-based discharge plan generator produces patient-facing letters in plain English, with personalised:
+A rule based discharge plan generator produces patient-facing letters in plain English, with personalised:
 - **Diet advice** (mapped to the patient's top risk drivers)
 - **Exercise recommendations** (adapted by risk band severity)
 - **Medication adherence reminders** (triggered by insulin/medication changes)
@@ -57,7 +57,7 @@ Plans are exportable as professional **PDF letters** via `fpdf`, ready for clini
 
 **Python + Streamlit:** Python's numerical ecosystem (scikit-learn, pandas, numpy) is the natural choice for clinical ML pipelines. Streamlit was chosen over Flask/Django for rapid, interactive dashboard prototyping with native support for caching (`@st.cache_resource`), session state, and reactive widgets — all critical for a clinical workflow where clinicians need instant feedback.
 
-**Calibrated Logistic Regression:** The final model uses class-weighted Logistic Regression with Platt scaling (isotonic calibration) to ensure raw outputs represent true clinical probabilities. This was chosen over black-box models (XGBoost, neural networks) for two reasons: (1) full linear interpretability — clinicians can see exactly which features drive each prediction via coefficient×value decomposition; (2) calibrated probabilities are essential for clinical thresholds — an uncalibrated "0.6" is meaningless, but a calibrated 60% readmission probability directly informs triage decisions.
+**Calibrated Logistic Regression:** The final model uses class-weighted Logistic Regression with Platt scaling (isotonic calibration) to ensure raw outputs represent true clinical probabilities. This was chosen over black box models (XGBoost, neural networks) for two reasons: (1) full linear interpretability clinicians can see exactly which features drive each prediction via coefficient×value decomposition; (2) calibrated probabilities are essential for clinical thresholds an uncalibrated "0.6" is meaningless, but a calibrated 60% readmission probability directly informs triage decisions.
 
 **SQLite + Fernet Encryption:** SQLite provides zero-configuration portability for a self-contained clinical prototype. All patient intervention notes are encrypted at rest with Fernet symmetric encryption, ensuring sensitive clinical data is never stored in plaintext. The encryption key (`data/.clinical_key`) is auto-generated and gitignored.
 
