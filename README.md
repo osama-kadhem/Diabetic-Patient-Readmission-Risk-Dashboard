@@ -19,7 +19,7 @@ Once running locally (see [Quickstart](#-developer-quickstart) below), the dashb
 | **Dashboard**    | [http://localhost:8501](http://localhost:8501) |
 | **Login**        | One-click clinical authentication           |
 
-**Default Session:** `DR. OSAMA SALEH (DEPT-CARDIO)`
+**Default Session:** `(DEPT-CARDIO)`
 
 ---
 
