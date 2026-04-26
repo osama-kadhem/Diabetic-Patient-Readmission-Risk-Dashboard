@@ -1,7 +1,7 @@
 {
   "model_version": "lr_classweight_w7_final",
   "model_path": "clinical_models/final_model/lr_classweight_w7_final.joblib",
-  "model_sha256": "e56f1ab7964b2d8baf8be69e8e5ec9877a0bf36ba7f1fa0a00a2d1f9d671889c",
+  "model_sha256": "76c318e6bca48f78992808f255deb5d9c4acef9099887aefff1fe3c4759dc436",
   "num_features": [
     "time_in_hospital",
     "num_medications",

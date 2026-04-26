@@ -474,8 +474,8 @@ with st.sidebar:
     else:
         # Best-F1: validated operating point from calibration curve analysis.
         st.session_state.op_mode_name = "best_f1"
-        st.session_state.tau_high = 0.604
-        st.session_state.tau_mid  = 0.514
+        st.session_state.tau_high = 0.496
+        st.session_state.tau_mid  = 0.446
 
     st.markdown("#### CAPACITY")
 

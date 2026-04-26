@@ -5,7 +5,7 @@ import warnings
 # Columns stripped before inference to prevent data leakage
 _LEAKY_COLUMNS = ['readmitted', 'readmitted_binary', 'label', 'target']
 
-def predict_risk(df, pipeline, threshold_high=0.604, threshold_medium=0.514):
+def predict_risk(df, pipeline, threshold_high=0.496, threshold_medium=0.446):
     df_pred = df.copy()
 
     # Drop any ground-truth labels if the user uploaded a labelled dataset

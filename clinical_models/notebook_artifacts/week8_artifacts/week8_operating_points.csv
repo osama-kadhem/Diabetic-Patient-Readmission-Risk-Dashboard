@@ -1,0 +1,3 @@
+model,high_recall,best_f1
+"Random Forest, Class-Weighted",0.45524036053765765,0.5052403605376576
+"Logistic Regression, Class-Weighted",0.44607606393739974,0.4960760639373997

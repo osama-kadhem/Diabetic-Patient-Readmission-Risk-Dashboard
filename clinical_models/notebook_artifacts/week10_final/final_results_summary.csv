@@ -1,0 +1,3 @@
+Model,PR_AUC,F1,Recall,Precision,Brier,tau_F1,tau_HR
+rf_balanced_w7,0.1799,0.2439,0.4816,0.1633,0.2228,0.505,0.455
+lr_classweight_w7,0.1796,0.2419,0.4914,0.1604,0.2311,0.496,0.446
