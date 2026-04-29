@@ -4,25 +4,145 @@
   "model_sha256": "76c318e6bca48f78992808f255deb5d9c4acef9099887aefff1fe3c4759dc436",
   "num_features": [
     "time_in_hospital",
+    "num_lab_procedures",
+    "num_procedures",
     "num_medications",
-    "number_inpatient",
+    "number_outpatient",
     "number_emergency",
-    "number_outpatient"
+    "number_inpatient",
+    "number_diagnoses"
   ],
   "cat_features": [
+    "race",
+    "gender",
     "age",
+    "admission_type_id",
+    "admission_source_id",
+    "max_glu_serum",
     "A1Cresult",
-    "insulin",
-    "change",
-    "diabetesMed",
     "metformin",
+    "repaglinide",
+    "nateglinide",
+    "chlorpropamide",
+    "glimepiride",
+    "acetohexamide",
     "glipizide",
     "glyburide",
-    "max_glu_serum",
-    "admission_type_id",
-    "discharge_disposition_id"
+    "tolbutamide",
+    "pioglitazone",
+    "rosiglitazone",
+    "acarbose",
+    "miglitol",
+    "troglitazone",
+    "tolazamide",
+    "examide",
+    "citoglipton",
+    "insulin",
+    "glyburide-metformin",
+    "glipizide-metformin",
+    "glimepiride-pioglitazone",
+    "metformin-rosiglitazone",
+    "metformin-pioglitazone",
+    "change",
+    "diabetesMed"
   ],
   "features": {
+    "time_in_hospital": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 1,
+      "max": 14,
+      "median": 4,
+      "description": "Days in Hospital"
+    },
+    "num_lab_procedures": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 1,
+      "max": 120,
+      "median": 44,
+      "description": "Lab Procedures"
+    },
+    "num_procedures": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 0,
+      "max": 6,
+      "median": 1,
+      "description": "Clinical Procedures"
+    },
+    "num_medications": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 1,
+      "max": 43,
+      "median": 15,
+      "description": "Active Medications"
+    },
+    "number_outpatient": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 0,
+      "max": 5,
+      "median": 0,
+      "description": "Prior Outpatient Visits"
+    },
+    "number_emergency": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 0,
+      "max": 3,
+      "median": 0,
+      "description": "Prior Emergency Visits"
+    },
+    "number_inpatient": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 0,
+      "max": 6,
+      "median": 0,
+      "description": "Prior Inpatient Admissions"
+    },
+    "number_diagnoses": {
+      "type": "numeric",
+      "widget": "slider",
+      "step": 1,
+      "min": 1,
+      "max": 16,
+      "median": 7,
+      "description": "Number of Diagnoses"
+    },
+    "race": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "AfricanAmerican",
+        "Asian",
+        "Caucasian",
+        "Hispanic",
+        "Other"
+      ],
+      "default": "AfricanAmerican",
+      "description": "Race"
+    },
+    "gender": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Female",
+        "Male",
+        "Unknown/Invalid"
+      ],
+      "default": "Female",
+      "description": "Gender"
+    },
     "age": {
       "type": "categorical",
       "widget": "selectbox",
@@ -41,141 +161,6 @@
       "default": "[0-10)",
       "description": "Age"
     },
-    "time_in_hospital": {
-      "type": "numeric",
-      "widget": "slider",
-      "step": 1,
-      "min": 1.0,
-      "max": 14.0,
-      "median": 4.0,
-      "description": "Days in Hospital"
-    },
-    "num_medications": {
-      "type": "numeric",
-      "widget": "slider",
-      "step": 1,
-      "min": 3.0,
-      "max": 43.0,
-      "median": 15.0,
-      "description": "Number of Medications"
-    },
-    "number_inpatient": {
-      "type": "numeric",
-      "widget": "slider",
-      "step": 1,
-      "min": 0.0,
-      "max": 6.0,
-      "median": 0.0,
-      "description": "Prior Inpatient Visits"
-    },
-    "number_emergency": {
-      "type": "numeric",
-      "widget": "slider",
-      "step": 1,
-      "min": 0.0,
-      "max": 3.0,
-      "median": 0.0,
-      "description": "Prior Emergency Visits"
-    },
-    "number_outpatient": {
-      "type": "numeric",
-      "widget": "slider",
-      "step": 1,
-      "min": 0.0,
-      "max": 5.0,
-      "median": 0.0,
-      "description": "Prior Outpatient Visits"
-    },
-    "A1Cresult": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        ">7",
-        ">8",
-        "Norm"
-      ],
-      "default": ">7",
-      "description": "HbA1c Result"
-    },
-    "insulin": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        "Down",
-        "No",
-        "Steady",
-        "Up"
-      ],
-      "default": "No",
-      "description": "Insulin Dosage Change"
-    },
-    "change": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        "Ch",
-        "No"
-      ],
-      "default": "No",
-      "description": "Change in Medications"
-    },
-    "diabetesMed": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        "No",
-        "Yes"
-      ],
-      "default": "No",
-      "description": "Prescribed Diabetes Medication"
-    },
-    "metformin": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        "Down",
-        "No",
-        "Steady",
-        "Up"
-      ],
-      "default": "No",
-      "description": "Metformin Dosage"
-    },
-    "glipizide": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        "Down",
-        "No",
-        "Steady",
-        "Up"
-      ],
-      "default": "No",
-      "description": "Glipizide Dosage"
-    },
-    "glyburide": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        "Down",
-        "No",
-        "Steady",
-        "Up"
-      ],
-      "default": "No",
-      "description": "Glyburide Dosage"
-    },
-    "max_glu_serum": {
-      "type": "categorical",
-      "widget": "selectbox",
-      "allowed": [
-        ">200",
-        ">300",
-        "Norm"
-      ],
-      "default": "Norm",
-      "description": "Max Glucose Serum"
-    },
     "admission_type_id": {
       "type": "categorical",
       "widget": "selectbox",
@@ -192,7 +177,7 @@
       "default": "1",
       "description": "Admission Type"
     },
-    "discharge_disposition_id": {
+    "admission_source_id": {
       "type": "categorical",
       "widget": "selectbox",
       "allowed": [
@@ -207,24 +192,309 @@
         "9",
         "10",
         "11",
-        "12",
         "13",
         "14",
-        "15",
-        "16",
         "17",
-        "18",
-        "19",
         "20",
         "22",
-        "23",
-        "24",
-        "25",
-        "27",
-        "28"
+        "25"
       ],
       "default": "1",
-      "description": "Discharge Disposition"
+      "description": "Admission Source"
+    },
+    "max_glu_serum": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        ">200",
+        ">300",
+        "Norm"
+      ],
+      "default": ">200",
+      "description": "Max Glucose Serum"
+    },
+    "A1Cresult": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        ">7",
+        ">8",
+        "Norm"
+      ],
+      "default": ">7",
+      "description": "HbA1c Result"
+    },
+    "metformin": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Metformin"
+    },
+    "repaglinide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Repaglinide"
+    },
+    "nateglinide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Nateglinide"
+    },
+    "chlorpropamide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Chlorpropamide"
+    },
+    "glimepiride": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Glimepiride"
+    },
+    "acetohexamide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No"
+      ],
+      "default": "No",
+      "description": "Acetohexamide"
+    },
+    "glipizide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Glipizide"
+    },
+    "glyburide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Glyburide"
+    },
+    "tolbutamide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Steady"
+      ],
+      "default": "No",
+      "description": "Tolbutamide"
+    },
+    "pioglitazone": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Pioglitazone"
+    },
+    "rosiglitazone": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Rosiglitazone"
+    },
+    "acarbose": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Acarbose"
+    },
+    "miglitol": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Miglitol"
+    },
+    "troglitazone": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Steady"
+      ],
+      "default": "No",
+      "description": "Troglitazone"
+    },
+    "tolazamide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Steady"
+      ],
+      "default": "No",
+      "description": "Tolazamide"
+    },
+    "examide": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No"
+      ],
+      "default": "No",
+      "description": "Examide"
+    },
+    "citoglipton": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No"
+      ],
+      "default": "No",
+      "description": "Citoglipton"
+    },
+    "insulin": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Insulin Dosage"
+    },
+    "glyburide-metformin": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Down",
+        "No",
+        "Steady",
+        "Up"
+      ],
+      "default": "Down",
+      "description": "Glyburide-Metformin"
+    },
+    "glipizide-metformin": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Steady"
+      ],
+      "default": "No",
+      "description": "Glipizide-Metformin"
+    },
+    "glimepiride-pioglitazone": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Steady"
+      ],
+      "default": "No",
+      "description": "Glimepiride-Pioglitazone"
+    },
+    "metformin-rosiglitazone": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Steady"
+      ],
+      "default": "No",
+      "description": "Metformin-Rosiglitazone"
+    },
+    "metformin-pioglitazone": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No"
+      ],
+      "default": "No",
+      "description": "Metformin-Pioglitazone"
+    },
+    "change": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "Ch",
+        "No"
+      ],
+      "default": "Ch",
+      "description": "Change in Medications"
+    },
+    "diabetesMed": {
+      "type": "categorical",
+      "widget": "selectbox",
+      "allowed": [
+        "No",
+        "Yes"
+      ],
+      "default": "No",
+      "description": "Prescribed Diabetes Medication"
     }
   }
 }

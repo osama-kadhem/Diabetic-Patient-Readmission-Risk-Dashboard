@@ -29,7 +29,17 @@ from src.interactions import check_drug_interactions
 
 @st.cache_data
 def get_local_explanation(pipeline_hash, _pipeline, patient_row):
-    """Compute per-feature contributions for a patient using the active pipeline."""
+    """
+    Compute per feature SHAP contributions for a patient using shap.LinearExplainer.
+
+    For a Logistic Regression model, LinearExplainer produces exact Shapley values
+    in O(n_features) time. The background reference point is the post-transform
+    feature mean vector (i.e., 'mean patient'), so each SHAP value represents
+    a feature's additive deviation from the population-average prediction.
+    This is theoretically superior to plain coef*x decomposition, which implicitly
+    uses the origin (all-zeros) as the reference — meaningless after StandardScaling.
+    """
+    import shap
     try:
         try:
             expected_cols = list(_pipeline.feature_names_in_)
@@ -39,12 +49,12 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
                 'num_medications', 'number_outpatient', 'number_emergency',
                 'number_inpatient', 'number_diagnoses'
             ]
-            
+
         missing = [c for c in expected_cols if c not in patient_row.index]
         if missing:
             return pd.DataFrame({'Error': [f"Missing feature columns: {missing[:3]}..."]})
-            
-        # Resolve the preprocessor step (varies by pipeline version).
+
+        # Resolve the preprocessor and model steps.
         preprocessor = (
             _pipeline.named_steps.get('preprocess') or
             _pipeline.named_steps.get('preprocessor') or
@@ -57,24 +67,34 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
         if model is None:
             return pd.DataFrame({'Error': ["No 'model' or 'classifier' step found in pipeline."]})
 
-        X = patient_row[expected_cols].to_frame().T
-        X_scaled = preprocessor.transform(X)
+        if not hasattr(model, 'coef_'):
+            return pd.DataFrame({'Error': ["LinearExplainer requires a linear model with coef_."]})
+
+        # Transform the patient's raw features into the model's feature space.
+        X_patient = patient_row[expected_cols].to_frame().T
+        X_scaled = preprocessor.transform(X_patient)
         if hasattr(X_scaled, 'toarray'):
             X_scaled = X_scaled.toarray()
 
-        if hasattr(model, 'coef_'):
-            weights = model.coef_[0]
-            contributions = X_scaled[0] * weights
-        elif hasattr(model, 'feature_importances_'):
-            weights = model.feature_importances_
-            contributions = X_scaled[0] * weights
-        else:
-            return pd.DataFrame({'Error': ["Model object has neither coef_ nor feature_importances_."]})
+        # Background: post-transform zero vector represents the 'mean patient'
+        # because StandardScaler centres by subtracting the training mean, so
+        # 0 in scaled space = mean of training distribution = neutral reference.
+        n_features_out = X_scaled.shape[1]
+        background = np.zeros((1, n_features_out))
 
+        # shap.LinearExplainer computes exact Shapley values for linear models.
+        # Values are in log-odds space (the natural output space of LR coef_).
+        explainer  = shap.LinearExplainer(model, background, feature_perturbation="interventional")
+        shap_vals  = explainer.shap_values(X_scaled)
+
+        # shap_vals is shape (n_samples, n_features_out) — take the single patient row.
+        contributions = shap_vals[0]
+
+        # Recover output feature names after OHE/scaling expansion.
         try:
             out_names = preprocessor.get_feature_names_out()
         except Exception:
-            out_names = expected_cols
+            out_names = [f"Feature {i}" for i in range(n_features_out)]
 
         if len(contributions) != len(out_names):
             out_names = [f"Feature {i}" for i in range(len(contributions))]
@@ -90,10 +110,10 @@ def get_local_explanation(pipeline_hash, _pipeline, patient_row):
             'Number Diagnoses':   'Comorbidity Count',
         }
 
-        # Format column names for display
+        # Format expanded OHE names (e.g. "cat__insulin_Steady") → "Insulin Steady"
         feature_labels = [
             name_map.get(
-                str(c).split('__')[-1].replace('_', ' ').title(), 
+                str(c).split('__')[-1].replace('_', ' ').title(),
                 str(c).split('__')[-1].replace('_', ' ').title()
             ) for c in out_names
         ]
@@ -466,11 +486,13 @@ with st.sidebar:
         help="Best-F1 maximizes overall accuracy. High-Recall flags more patients for review."
     )
     if "Screening" in op_mode:
-        # High-Recall: lower thresholds intentionally to maximise sensitivity —
-        # more patients are flagged as Moderate/High to minimise missed cases.
+        # High-Recall: thresholds from Week 8 notebook PR-curve sweep.
+        # tau_high = 0.446 (notebook high-recall point, recall=0.702, precision=0.135).
+        # tau_mid  = 0.30  — deliberately lower to widen Moderate band and
+        # minimise missed cases under screening mode.
         st.session_state.op_mode_name = "screening"
-        st.session_state.tau_high = 0.50
-        st.session_state.tau_mid  = 0.35
+        st.session_state.tau_high = 0.446
+        st.session_state.tau_mid  = 0.30
     else:
         # Best-F1: validated operating point from calibration curve analysis.
         st.session_state.op_mode_name = "best_f1"

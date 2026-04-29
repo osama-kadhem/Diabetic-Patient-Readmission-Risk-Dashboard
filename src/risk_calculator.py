@@ -12,9 +12,10 @@ import streamlit as st
 
 MANIFEST_PATH = "clinical_models/final_model/feature_manifest.json"
 
-# Decision thresholds tuned on the validation set (Platt-scaled LR)
-THRESHOLD_F1 = 0.514   # Best-F1 operating point
-THRESHOLD_HR = 0.604   # High-recall screening point
+# Decision thresholds derived from the Week 8 PR-curve sweep (lr_classweight_w7)
+# These match the values enforced in app.py and reported in §3.3.3.
+THRESHOLD_F1 = 0.496   # Best-F1 operating point
+THRESHOLD_HR = 0.446   # High-recall (screening) operating point
 
 # Admission type codes from the UCI dataset with readable labels
 ADMISSION_TYPE_LABELS: dict[str, str] = {
@@ -226,7 +227,7 @@ def compute_risk_band(prob: float, mode: str = "best_f1") -> tuple[str, str]:
     """
     Map a calibrated probability to (band_label, css_colour).
 
-    mode='best_f1' (default)  : τ_high=0.604, τ_mid=0.514
+    mode='best_f1' (default)  : τ_high=0.496, τ_mid=0.446
     mode='screening'          : same bands, but communicates high-recall intent
     """
     tau_high = THRESHOLD_HR
@@ -254,7 +255,7 @@ def interpret_risk(prob: float, band: str, mode: str = "best_f1") -> str:
     if band == "Moderate":
         return (
             f"This patient has a moderate readmission risk ({pct:.1f}%). {mode_note} "
-            "Follow-up within 14 days and outpatient care coordination are advised."
+            "Follow up within 14 days and outpatient care coordination are advised."
         )
     return (
         f"This patient has a low readmission risk ({pct:.1f}%). {mode_note} "
