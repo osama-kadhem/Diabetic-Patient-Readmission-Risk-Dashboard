@@ -169,7 +169,7 @@ def generate_patient_pdf(patient_row, explanation_df=None, history_df=None, user
             else:
                 pdf.set_text_color(5, 150, 105)
             
-            # Strip emojis for latin-1 PDF compatibility
+     
             clean_lvl = alert["level"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
             clean_msg = alert["message"].replace("🚨", "").replace("⚠️", "").replace("🛑", "").replace("✅", "").strip()
             

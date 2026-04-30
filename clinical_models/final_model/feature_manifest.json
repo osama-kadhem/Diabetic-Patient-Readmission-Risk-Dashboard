@@ -13,8 +13,6 @@
     "number_diagnoses"
   ],
   "cat_features": [
-    "race",
-    "gender",
     "age",
     "admission_type_id",
     "admission_source_id",

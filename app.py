@@ -503,15 +503,17 @@ with st.sidebar:
 
     if st.session_state.uploaded_data is not None:
         max_patients = len(st.session_state.uploaded_data)
+        safe_max_patients = max(1, max_patients)
         top_k = st.number_input(
-            " Daily Intervention Capacity",
+            "Daily Intervention Capacity",
             min_value=1, 
-            max_value=max_patients,
-            value=min(20, max_patients),
-            help="Max patients team can contact today"
+            max_value=safe_max_patients,
+            value=min(20, safe_max_patients),
+            help="Max patients team can contact today",
+            key="capacity_active"
         )
     else:
-        top_k = st.number_input("Daily Intervention Capacity", value=20, disabled=True)
+        top_k = st.number_input("Daily Intervention Capacity", value=20, disabled=True, key="capacity_disabled")
     
     st.markdown("---")
     if st.button("RUN ANALYSIS", type="primary", use_container_width=True):
